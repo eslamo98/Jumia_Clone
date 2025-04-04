@@ -1,0 +1,6 @@
+@Jumia_Clone_HostAddress = http://localhost:5104
+
+GET {{Jumia_Clone_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
