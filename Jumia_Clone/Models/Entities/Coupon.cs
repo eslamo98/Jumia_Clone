@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Coupon
+public class Coupon
 {
     public int CouponId { get; set; }
 

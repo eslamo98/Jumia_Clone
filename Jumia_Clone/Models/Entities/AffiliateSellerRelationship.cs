@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class AffiliateSellerRelationship
+public class AffiliateSellerRelationship
 {
     public int RelationshipId { get; set; }
 

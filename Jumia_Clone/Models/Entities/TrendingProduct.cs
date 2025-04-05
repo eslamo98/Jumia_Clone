@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class TrendingProduct
+public class TrendingProduct
 {
     public int TrendingId { get; set; }
 

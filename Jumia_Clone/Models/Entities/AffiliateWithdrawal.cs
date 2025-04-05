@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class AffiliateWithdrawal
+public class AffiliateWithdrawal
 {
     public int WithdrawalId { get; set; }
 

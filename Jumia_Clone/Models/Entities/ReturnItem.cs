@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ReturnItem
+public class ReturnItem
 {
     public int ReturnItemId { get; set; }
 

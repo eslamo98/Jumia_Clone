@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Address
+public class Address
 {
     public int AddressId { get; set; }
 

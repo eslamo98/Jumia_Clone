@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Rating
+public class Rating
 {
     public int RatingId { get; set; }
 

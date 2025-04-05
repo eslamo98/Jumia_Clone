@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ProductVariant
+public class ProductVariant
 {
     public int VariantId { get; set; }
 

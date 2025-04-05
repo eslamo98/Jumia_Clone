@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ReviewImage
+public class ReviewImage
 {
     public int ReviewImageId { get; set; }
 

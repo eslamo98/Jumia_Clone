@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class VariantAttribute
+public class VariantAttribute
 {
     public int VariantAttributeId { get; set; }
 

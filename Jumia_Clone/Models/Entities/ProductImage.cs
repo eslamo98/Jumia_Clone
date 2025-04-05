@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ProductImage
+public class ProductImage
 {
     public int ImageId { get; set; }
 

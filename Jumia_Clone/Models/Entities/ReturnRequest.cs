@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ReturnRequest
+public class ReturnRequest
 {
     public int ReturnId { get; set; }
 

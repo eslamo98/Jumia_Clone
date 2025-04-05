@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class SearchResultClick
+public class SearchResultClick
 {
     public int ClickId { get; set; }
 

@@ -1,5 +1,7 @@
 
 using Jumia_Clone.Configuration;
+using Jumia_Clone.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone
 {
@@ -16,7 +18,9 @@ namespace Jumia_Clone
             builder.Services.AddOpenApi();
             // Configure CORS
             builder.Services.ConfigureCors(builder.Configuration);
-
+            // Add services to the container
+            builder.Services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("sqlCon")));
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

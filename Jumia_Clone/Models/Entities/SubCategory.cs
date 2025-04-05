@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class SubCategory
+public class SubCategory
 {
     public int SubcategoryId { get; set; }
 

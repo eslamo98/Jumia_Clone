@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class HelpfulRating
+public class HelpfulRating
 {
     public int HelpfulId { get; set; }
 

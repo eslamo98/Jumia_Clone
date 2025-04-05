@@ -2,7 +2,7 @@
 
 namespace Jumia_Clone.Models.Entities
 {
-    public partial class update_trending_productsResult
+    public class update_trending_productsResult
     {
     }
 }

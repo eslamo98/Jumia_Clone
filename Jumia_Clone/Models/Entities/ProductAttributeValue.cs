@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ProductAttributeValue
+public class ProductAttributeValue
 {
     public int ValueId { get; set; }
 

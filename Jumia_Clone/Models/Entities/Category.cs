@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Category
+public class Category
 {
     public int CategoryId { get; set; }
 

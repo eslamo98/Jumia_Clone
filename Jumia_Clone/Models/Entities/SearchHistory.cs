@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class SearchHistory
+public class SearchHistory
 {
     public int SearchId { get; set; }
 

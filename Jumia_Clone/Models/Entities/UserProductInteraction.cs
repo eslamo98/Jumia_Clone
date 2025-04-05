@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class UserProductInteraction
+public class UserProductInteraction
 {
     public int InteractionId { get; set; }
 

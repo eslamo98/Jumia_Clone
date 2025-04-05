@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class User
+public class User
 {
     public int UserId { get; set; }
 

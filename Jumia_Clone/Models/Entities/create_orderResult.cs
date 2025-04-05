@@ -2,7 +2,7 @@
 
 namespace Jumia_Clone.Models.Entities
 {
-    public partial class create_orderResult
+    public class create_orderResult
     {
         public int? order_id { get; set; }
     }

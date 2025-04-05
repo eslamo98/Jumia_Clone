@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Affiliate
+public class Affiliate
 {
     public int AffiliateId { get; set; }
 

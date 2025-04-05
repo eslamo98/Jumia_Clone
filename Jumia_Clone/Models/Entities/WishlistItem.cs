@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class WishlistItem
+public class WishlistItem
 {
     public int WishlistItemId { get; set; }
 

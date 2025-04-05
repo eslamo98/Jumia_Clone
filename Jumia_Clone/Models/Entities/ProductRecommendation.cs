@@ -4,7 +4,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ProductRecommendation
+public class ProductRecommendation
 {
     public int RecommendationId { get; set; }
 

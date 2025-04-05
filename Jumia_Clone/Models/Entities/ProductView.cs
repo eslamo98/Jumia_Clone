@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class ProductView
+public class ProductView
 {
     public int ViewId { get; set; }
 

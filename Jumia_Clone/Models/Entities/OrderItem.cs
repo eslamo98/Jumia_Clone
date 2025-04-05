@@ -3,7 +3,7 @@
 
 namespace Jumia_Clone.Models.Entities;
 
-public partial class OrderItem
+public class OrderItem
 {
     public int OrderItemId { get; set; }
 

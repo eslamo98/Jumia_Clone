@@ -2,7 +2,7 @@
 #nullable disable
 namespace Jumia_Clone.Models.Entities;
 
-public partial class Cart
+public class Cart
 {
     public int CartId { get; set; }
 
