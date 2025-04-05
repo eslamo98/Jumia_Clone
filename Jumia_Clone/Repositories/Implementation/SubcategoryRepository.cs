@@ -58,22 +58,40 @@ namespace Jumia_Clone.Repositories.Implementation
         // Update Subcategory
         public async Task<Subcategorydto> UpdateSubcategoryAsync(int subcategoryId, Subcategorydto subcategoryDto)
         {
-            var subcategory = await _context.SubCategories.FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId);
+            var subcategory = await _context.SubCategories
+        .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId);
+
             if (subcategory == null)
             {
                 throw new Exception("Subcategory not found");
             }
-
-            // Update subcategory's fields
+           
             subcategory.Name = subcategoryDto.Name;
             subcategory.CategoryId = subcategoryDto.CategoryId;
             subcategory.Description = subcategoryDto.Description;
             subcategory.ImageUrl = subcategoryDto.ImageUrl;
             subcategory.IsActive = subcategoryDto.IsActive;
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                Console.WriteLine("DbUpdateException: " + ex.InnerException?.Message);
+                throw new Exception("Error occurred while updating the subcategory.");
+            }
 
-            return subcategoryDto;
+            return new Subcategorydto
+            {
+                SubcategoryId = subcategory.SubcategoryId,
+                Name = subcategory.Name,
+                CategoryId = subcategory.CategoryId,
+                Description = subcategory.Description,
+                ImageUrl = subcategory.ImageUrl,
+                IsActive = subcategory.IsActive ?? false,
+                ProductCount = subcategory.Products?.Count ?? 0
+            };
         }
 
         // Soft Delete Subcategory

@@ -61,7 +61,8 @@ namespace Jumia_Clone.Configuration
         {
             // JWT Service
             services.AddScoped<JwtService>();
-
+           // services.AddSubcategoryServices();
+            services.AddScoped<SubcategoryService>();
             // Add other services here as your project grows
             // Example: services.AddScoped<IEmailService, EmailService>();
             // Example: services.AddScoped<IFileStorageService, FileStorageService>();
@@ -74,6 +75,7 @@ namespace Jumia_Clone.Configuration
 
             // Auth repository
             services.AddScoped<IAuthRepository, AuthRepository>();
+            services.AddScoped<ISubcategoryService, SubcategoryRepository>();
 
             // Add other repositories here as your project grows
             // Example: services.AddScoped<IProductRepository, ProductRepository>();
@@ -83,7 +85,7 @@ namespace Jumia_Clone.Configuration
         private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(configuration.GetConnectionString("hagerSqlCon")));
+                options.UseSqlServer(configuration.GetConnectionString("sqlCon")));
         }
     }
 }
