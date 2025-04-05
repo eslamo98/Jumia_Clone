@@ -42,7 +42,7 @@ namespace Jumia_Clone.Repositories.Implementation
             var subcategory = new SubCategory
             {
                 Name = subcategoryDto.Name,
-               // CategoryId = subcategoryDto.CategoryId,
+                CategoryId = subcategoryDto.CategoryId,
                 Description = subcategoryDto.Description,
                 ImageUrl = subcategoryDto.ImageUrl,
                 IsActive = subcategoryDto.IsActive
