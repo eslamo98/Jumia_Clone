@@ -8,16 +8,20 @@
             {
                 options.AddPolicy("CorsPolicy", builder =>
                 {
-                    builder.AllowAnyOrigin()
-                        //.WithOrigins(
-                        //    // Allow Angular development server
-                        //    "http://localhost:4200",
-                        //    // Add production URLs as needed
-                        //    configuration["ClientUrl"] ?? "http://localhost:4200"
-                        //)
-                        .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        .AllowCredentials();
+                    //builder.AllowAnyOrigin()
+                    //    //.WithOrigins(
+                    //    //    // Allow Angular development server
+                    //    //    "http://localhost:4200",
+                    //    //    // Add production URLs as needed
+                    //    //    configuration["ClientUrl"] ?? "http://localhost:4200"
+                    //    //)
+                    //    .AllowAnyMethod()
+                    //    .AllowAnyHeader()
+                    //    .AllowCredentials();
+                    builder
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
                 });
             });
 
