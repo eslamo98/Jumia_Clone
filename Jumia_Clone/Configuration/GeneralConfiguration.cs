@@ -83,7 +83,7 @@ namespace Jumia_Clone.Configuration
         private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(configuration.GetConnectionString("sqlCon")));
+                options.UseSqlServer(configuration.GetConnectionString("hagerSqlCon")));
         }
     }
 }
