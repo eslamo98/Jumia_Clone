@@ -10,7 +10,7 @@ This plan outlines the step-by-step implementation of a Jumia clone e-commerce p
 
 ### Day 1-2: Project Setup & Database
 - **Backend Tasks**:
-  - [ ] Set up .NET Web API project structure
+  - [x] Set up .NET Web API project structure
   - [ ] Configure Entity Framework and create DbContext
   - [ ] Execute SQL scripts to create all database tables
   - [ ] Scaffold entity models from database
