@@ -1191,7 +1191,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
                 .HasColumnName("last_name");
             entity.Property(e => e.PasswordHash)
                 .IsRequired()
-                .HasMaxLength(255)
+                .HasMaxLength(1000)
                 .HasColumnName("password_hash");
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20)
