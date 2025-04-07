@@ -62,10 +62,7 @@ namespace Jumia_Clone.Configuration
             // JWT Service
             services.AddScoped<JwtService>();
            // services.AddSubcategoryServices();
-            services.AddScoped<SubcategoryService>();
-            // Add other services here as your project grows
-            // Example: services.AddScoped<IEmailService, EmailService>();
-            // Example: services.AddScoped<IFileStorageService, FileStorageService>();
+        
         }
 
         private static void RegisterRepositories(IServiceCollection services)
@@ -75,7 +72,11 @@ namespace Jumia_Clone.Configuration
 
             // Auth repository
             services.AddScoped<IAuthRepository, AuthRepository>();
+            // Subcategory repository
             services.AddScoped<ISubcategoryService, SubcategoryRepository>();
+
+            // category repository
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
 
             // Add other repositories here as your project grows
             // Example: services.AddScoped<IProductRepository, ProductRepository>();

@@ -1,4 +1,4 @@
-﻿namespace Jumia_Clone.Models.DTOs.AuthenticationDTOs
+﻿namespace Jumia_Clone.Models.DTOs.GeneralDTOs
 {
     public class ApiResponse<T>
     {
