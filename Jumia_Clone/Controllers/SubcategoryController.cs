@@ -11,7 +11,7 @@ namespace Jumia_Clone.Controllers
     public class SubcategoryController : ControllerBase
     {
         private readonly ISubcategoryService _subcategoryService;
-
+    
        
         public SubcategoryController(ISubcategoryService subcategoryService)
         {
@@ -32,7 +32,7 @@ namespace Jumia_Clone.Controllers
 
         // Create a Subcategory
         [HttpPost]
-        public async Task<ActionResult<Subcategorydto>> CreateSubcategory([FromBody] Subcategorydto subcategoryDto)
+        public async Task<ActionResult<Subcategorydto>> CreateSubcategory([FromBody] CreateSubcategoryDto subcategoryDto)
         {
             if (subcategoryDto == null)
             {
@@ -45,7 +45,7 @@ namespace Jumia_Clone.Controllers
 
         // Update a Subcategory
         [HttpPut("{subcategoryId}")]
-        public async Task<ActionResult<Subcategorydto>> UpdateSubcategory(int subcategoryId, [FromBody] Subcategorydto subcategoryDto)
+        public async Task<ActionResult<Subcategorydto>> UpdateSubcategory(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
         {
             var updatedSubcategory = await _subcategoryService.UpdateSubcategoryAsync(subcategoryId, subcategoryDto);
             if (updatedSubcategory == null)

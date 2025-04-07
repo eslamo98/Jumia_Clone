@@ -37,7 +37,7 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         // Create Subcategory
-        public async Task<Subcategorydto> CreateSubcategory(Subcategorydto subcategoryDto)
+        public async Task<Subcategorydto> CreateSubcategory(CreateSubcategoryDto subcategoryDto)
         {
             var subcategory = new SubCategory
             {
@@ -45,19 +45,32 @@ namespace Jumia_Clone.Repositories.Implementation
                 CategoryId = subcategoryDto.CategoryId,
                 Description = subcategoryDto.Description,
                 ImageUrl = subcategoryDto.ImageUrl,
-                IsActive = subcategoryDto.IsActive
+                IsActive = subcategoryDto.IsActive,
+                
             };
 
             _context.SubCategories.Add(subcategory);
             await _context.SaveChangesAsync();
 
-          subcategoryDto.SubcategoryId = subcategory.SubcategoryId; // Set the created SubcategoryId
-            return subcategoryDto;
+
+            return new Subcategorydto()
+            {
+                SubcategoryId = subcategory.SubcategoryId,
+
+                CategoryId = subcategory.CategoryId,
+                Description = subcategory.Description,
+                ImageUrl = subcategory.ImageUrl,
+                IsActive = subcategory.IsActive ?? false,
+                Name = subcategory.Name,
+                ProductCount = subcategory.Products.Count()
+            };
+            
         }
 
         // Update Subcategory
-        public async Task<Subcategorydto> UpdateSubcategoryAsync(int subcategoryId, Subcategorydto subcategoryDto)
+        public async Task<Subcategorydto> UpdateSubcategoryAsync(int subcategoryId, EditSubcategoryDto subcategoryDto)
         {
+
             var subcategory = await _context.SubCategories
         .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId);
 

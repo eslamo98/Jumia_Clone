@@ -1,5 +1,5 @@
-﻿using Jumia_Clone.Models.DTOs;
-using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
+﻿using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
