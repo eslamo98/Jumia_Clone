@@ -23,3 +23,4 @@ public class CartItem
 
     public virtual ProductVariant Variant { get; set; }
 }
+

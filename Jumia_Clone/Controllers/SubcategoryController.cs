@@ -3,6 +3,9 @@ using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Jumia_Clone.Repositories;
 using Jumia_Clone.Services;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Repositories.Implementation;
+using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Controllers
 {
@@ -11,8 +14,7 @@ namespace Jumia_Clone.Controllers
     public class SubcategoryController : ControllerBase
     {
         private readonly ISubcategoryService _subcategoryService;
-    
-       
+
         public SubcategoryController(ISubcategoryService subcategoryService)
         {
             _subcategoryService = subcategoryService;
@@ -20,75 +22,204 @@ namespace Jumia_Clone.Controllers
 
         // Get Subcategories by Category
         [HttpGet("category/{categoryId}")]
-        public async Task<ActionResult<List<Subcategorydto>>> GetSubcategoriesByCategory(int categoryId)
+        public async Task<IActionResult> GetAll(int categoryId)
         {
-            var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId);
-            if (subcategories == null || subcategories.Count == 0)
+            try
             {
-                return NotFound("No subcategories found for this category.");
+                var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId);
+                if (subcategories == null || subcategories.Count == 0)
+                {
+                    return NotFound(new ApiErrorResponse(
+                        new[] { "No subcategories found for this category." },
+                        "Subcategories not found."
+                    ));
+                }
+
+                return Ok(new ApiResponse<List<Subcategorydto>>(
+                    subcategories,
+                    "Successfully retrieved subcategories."
+                ));
             }
-            return Ok(subcategories);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving subcategories."
+                ));
+            }
         }
 
         // Create a Subcategory
+        // POST: api/Subcategory
         [HttpPost]
-        public async Task<ActionResult<Subcategorydto>> CreateSubcategory([FromBody] CreateSubcategoryDto subcategoryDto)
+        public async Task<IActionResult> Create([FromBody] CreateSubcategoryDto subcategoryDto)
         {
-            if (subcategoryDto == null)
+            if (!ModelState.IsValid)
             {
-                return BadRequest("Invalid data.");
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "Invalid subcategory data",
+                    ErrorMessages = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToArray()
+                });
             }
 
-            var createdSubcategory = await _subcategoryService.CreateSubcategory(subcategoryDto);
-            return CreatedAtAction(nameof(GetSubcategoryById), new { subcategoryId = createdSubcategory.SubcategoryId }, createdSubcategory);
+            try
+            {
+                var createdSubcategory = await _subcategoryService.CreateSubcategory(subcategoryDto);
+
+                return CreatedAtAction(
+                    nameof(GetById),
+                    new { subcategoryId = createdSubcategory.SubcategoryId },
+                    new ApiResponse<Subcategorydto>
+                    {
+                        Data = createdSubcategory,
+                        Message = "Subcategory was created successfully!"
+                    });
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "There is already a subcategory with name " + subcategoryDto.Name,
+                    ErrorMessages = new[] { ex.Message }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while creating the subcategory",
+                    ErrorMessages = new[] { ex.Message }
+                });
+            }
         }
+
 
         // Update a Subcategory
         [HttpPut("{subcategoryId}")]
-        public async Task<ActionResult<Subcategorydto>> UpdateSubcategory(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
+        public async Task<IActionResult> Update(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
         {
-            var updatedSubcategory = await _subcategoryService.UpdateSubcategoryAsync(subcategoryId, subcategoryDto);
-            if (updatedSubcategory == null)
+            try
             {
-                return NotFound("Subcategory not found.");
+                var updatedSubcategory = await _subcategoryService.UpdateSubcategory(subcategoryId, subcategoryDto);
+                if (updatedSubcategory == null)
+                {
+                    return NotFound(new ApiErrorResponse(
+                        new[] { "Subcategory not found." },
+                        "Subcategory not found."
+                    ));
+                }
+
+                return Ok(new ApiResponse<Subcategorydto>(
+                    updatedSubcategory,
+                    "Subcategory updated successfully."
+                ));
             }
-            return Ok(updatedSubcategory);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while updating the subcategory."
+                ));
+            }
         }
 
-        // Soft Delete a Subcategory
-        [HttpDelete("{subcategoryId}")]
-        public async Task<ActionResult<bool>> SoftDeleteSubcategory(int subcategoryId)
+        // DELETE: api/SubCategories/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            var result = await _subcategoryService.SoftDeleteSubcategory(subcategoryId);
-            if (!result)
+            try
             {
-                return NotFound("Subcategory not found or already deleted.");
+                await _subcategoryService.DeleteSubcategory(id);
+                return Ok(new ApiResponse<object>(
+                    null,
+                    "Subcategory deleted successfully."
+                ));
             }
-            return Ok(true);
-        }
-
-        // Restore a Soft-Deleted Subcategory
-        [HttpPut("restore/{subcategoryId}")]
-        public async Task<ActionResult<Subcategorydto>> RestoreSubcategory(int subcategoryId)
-        {
-            var restoredSubcategory = await _subcategoryService.RestoreSubcategory(subcategoryId);
-            if (restoredSubcategory == null)
+            catch (KeyNotFoundException)
             {
-                return NotFound("Subcategory not found or already active.");
+                return NotFound(new ApiErrorResponse(
+                    new[] { "Subcategory was not found." },
+                    "Subcategory not found."
+                ));
             }
-            return Ok(restoredSubcategory);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while deleting the subcategory."
+                ));
+            }
         }
 
         // Get Subcategory by ID
         [HttpGet("{subcategoryId}")]
-        public async Task<ActionResult<Subcategorydto>> GetSubcategoryById(int subcategoryId)
+        public async Task<IActionResult> GetById(int subcategoryId)
         {
-            var subcategory = await _subcategoryService.GetSubcategoryByIdAsync(subcategoryId);
-            if (subcategory == null)
+            try
             {
-                return NotFound("Subcategory not found.");
+                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
+                if (subcategory == null)
+                {
+                    return NotFound(new ApiErrorResponse(
+                        new[] { "Subcategory not found." },
+                        "Subcategory not found."
+                    ));
+                }
+
+                return Ok(new ApiResponse<Subcategorydto>(
+                    subcategory,
+                    "Successfully retrieved subcategory."
+                ));
             }
-            return Ok(subcategory);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving the subcategory."
+                ));
+            }
+        }
+
+        // Search Subcategories by Name or Description
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string searchTerm, [FromQuery] PaginationDto pagination)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    return BadRequest(new ApiErrorResponse(
+                        new[] { "Search term cannot be empty" },
+                        "Search term is required."
+                    ));
+                }
+
+                var result = await _subcategoryService.SearchByNameOrDescription(searchTerm, pagination);
+
+                if (result != null && result.Any())
+                {
+                    return Ok(new ApiResponse<IEnumerable<SearchSubcategoryDto>>(
+                        result,
+                        "Successfully retrieved matching subcategories"
+                    ));
+                }
+
+                return NotFound(new ApiErrorResponse(
+                    new[] { "No matching subcategories found" },
+                    "No subcategories found matching the search criteria."
+                ));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving subcategories"
+                ));
+            }
         }
     }
 }

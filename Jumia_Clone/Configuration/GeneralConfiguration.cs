@@ -74,6 +74,7 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<IAuthRepository, AuthRepository>();
             // Subcategory repository
             services.AddScoped<ISubcategoryService, SubcategoryRepository>();
+            services.AddScoped<ICartRepository, CartRepository>();  
 
             // category repository
             services.AddScoped<ICategoryRepository, CategoryRepository>();
