@@ -44,6 +44,56 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+        // GET: api/SubCategories
+        [HttpGet]
+        public async Task<IActionResult> GetAllSubcategories([FromQuery] PaginationDto pagination, [FromQuery] bool include_inactive = false)
+        {
+            try
+            {
+                var subcategories = await _subcategoryService.GetAllSubcategoriesAsync(pagination, include_inactive);
+
+                return Ok(new ApiResponse<IEnumerable<Subcategorydto>>(
+                    subcategories,
+                    "Successfully retrieved all subcategories."
+                ));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving subcategories."
+                ));
+            }
+        }
+
+        // Get Subcategory by ID
+        [HttpGet("{subcategoryId}")]
+        public async Task<IActionResult> GetById(int subcategoryId)
+        {
+            try
+            {
+                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
+                if (subcategory == null)
+                {
+                    return NotFound(new ApiErrorResponse(
+                        new[] { "Subcategory not found." },
+                        "Subcategory not found."
+                    ));
+                }
+
+                return Ok(new ApiResponse<Subcategorydto>(
+                    subcategory,
+                    "Successfully retrieved subcategory."
+                ));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving the subcategory."
+                ));
+            }
+        }
 
 
 
@@ -153,34 +203,7 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-        // Get Subcategory by ID
-        [HttpGet("{subcategoryId}")]
-        public async Task<IActionResult> GetById(int subcategoryId)
-        {
-            try
-            {
-                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
-                if (subcategory == null)
-                {
-                    return NotFound(new ApiErrorResponse(
-                        new[] { "Subcategory not found." },
-                        "Subcategory not found."
-                    ));
-                }
-
-                return Ok(new ApiResponse<Subcategorydto>(
-                    subcategory,
-                    "Successfully retrieved subcategory."
-                ));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiErrorResponse(
-                    new[] { ex.Message },
-                    "An error occurred while retrieving the subcategory."
-                ));
-            }
-        }
+     
 
         // Search Subcategories by Name or Description
         [HttpGet("search")]

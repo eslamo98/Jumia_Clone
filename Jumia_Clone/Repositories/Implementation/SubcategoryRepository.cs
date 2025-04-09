@@ -37,6 +37,30 @@ namespace Jumia_Clone.Repositories.Implementation
 
             return subcategories ?? new List<Subcategorydto>(); // Return an empty list if null
         }
+        //Get All Subcategories
+        public async Task<IEnumerable<Subcategorydto>> GetAllSubcategoriesAsync(PaginationDto pagination, bool includeInactive)
+        {
+            var query = _context.SubCategories
+                .Where(sc => includeInactive || sc.IsActive == true)
+                .AsQueryable();
+
+            var pagedSubcategories = await query
+                .Skip(pagination.PageSize * pagination.PageNumber)
+                .Take(pagination.PageSize)
+                .Select(sc => new Subcategorydto
+                {
+                    SubcategoryId = sc.SubcategoryId,
+                    Name = sc.Name,
+                    Description = sc.Description,
+                    ImageUrl = sc.ImageUrl,
+                    IsActive = sc.IsActive ??false,
+                    CategoryId = sc.CategoryId
+                })
+                .ToListAsync();
+
+            return pagedSubcategories;
+        }
+
 
         // Create Subcategory
         public async Task<Subcategorydto> CreateSubcategory(CreateSubcategoryDto subcategoryDto)
