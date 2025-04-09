@@ -1,7 +1,10 @@
 ﻿using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Jumia_Clone.Repositories;
+using Jumia_Clone.Services;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Repositories.Implementation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Controllers
@@ -41,6 +44,27 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+        // GET: api/SubCategories
+        [HttpGet]
+        public async Task<IActionResult> GetAllSubcategories([FromQuery] PaginationDto pagination, [FromQuery] bool include_inactive = false)
+        {
+            try
+            {
+                var subcategories = await _subcategoryService.GetAllSubcategoriesAsync(pagination, include_inactive);
+
+                return Ok(new ApiResponse<IEnumerable<Subcategorydto>>(
+                    subcategories,
+                    "Successfully retrieved all subcategories."
+                ));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving subcategories."
+                ));
+            }
+        }
 
         // Get Subcategory by ID
         [HttpGet("{subcategoryId}")]
@@ -70,7 +94,6 @@ namespace Jumia_Clone.Controllers
                 ));
             }
         }
-
 
 
 
@@ -179,6 +202,8 @@ namespace Jumia_Clone.Controllers
                 ));
             }
         }
+
+     
 
         // Search Subcategories by Name or Description
         [HttpGet("search")]

@@ -309,42 +309,52 @@ namespace Jumia_Clone.Repositories.Implementation
 
         private string HashPassword(string password)
         {
-            // For real applications, use a proper password hashing library like BCrypt.Net-Next
-            using var hmac = new HMACSHA512();
-            var salt = hmac.Key;
+            byte[] fixedSalt = new byte[64];
+            for (int i = 0; i < fixedSalt.Length; i++)
+            {
+                fixedSalt[i] = 1;
+            }
+
+            using var hmac = new HMACSHA512(fixedSalt);
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
 
-            // Combine salt and hash
-            var hashBytes = new byte[salt.Length + hash.Length];
-            Array.Copy(salt, 0, hashBytes, 0, salt.Length);
-            Array.Copy(hash, 0, hashBytes, salt.Length, hash.Length);
+            var hashBytes = new byte[fixedSalt.Length + hash.Length];
+            Array.Copy(fixedSalt, 0, hashBytes, 0, fixedSalt.Length);
+            Array.Copy(hash, 0, hashBytes, fixedSalt.Length, hash.Length);
 
             return Convert.ToBase64String(hashBytes);
         }
 
         private bool VerifyPassword(string password, string storedHash)
         {
-            // For real applications, use a proper password hashing library like BCrypt.Net-Next
-            var hashBytes = Convert.FromBase64String(storedHash);
-
-            // Extract salt (first 64 bytes)
-            var salt = new byte[64];
-            Array.Copy(hashBytes, 0, salt, 0, 64);
-
-            // Hash the input password with the extracted salt
-            using var hmac = new HMACSHA512(salt);
-            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
-            // Compare the computed hash with the stored hash
-            for (int i = 0; i < computedHash.Length; i++)
+            try
             {
-                if (computedHash[i] != hashBytes[64 + i])
-                {
-                    return false;
-                }
-            }
+                // Decode the stored hash
+                var hashBytes = Convert.FromBase64String(storedHash);
 
-            return true;
+                // Extract salt (first 64 bytes)
+                var salt = new byte[64];
+                Array.Copy(hashBytes, 0, salt, 0, 64);
+
+                // Hash the input password with the extracted salt
+                using var hmac = new HMACSHA512(salt);
+                var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+
+                // Compare the computed hash with the stored hash
+                for (int i = 0; i < computedHash.Length; i++)
+                {
+                    if (computedHash[i] != hashBytes[64 + i])
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private TokenResponseDto GenerateTokens(User user)
