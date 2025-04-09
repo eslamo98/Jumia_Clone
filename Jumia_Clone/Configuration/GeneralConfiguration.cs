@@ -2,6 +2,8 @@
 using Jumia_Clone.Repositories.Implementation;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services;
+using Jumia_Clone.Services.Implementation;
+using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Configuration
@@ -45,6 +47,7 @@ namespace Jumia_Clone.Configuration
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles(); 
 
             // Use CORS
             app.UseCors("CorsPolicy");
@@ -61,7 +64,9 @@ namespace Jumia_Clone.Configuration
         {
             // JWT Service
             services.AddScoped<JwtService>();
-           // services.AddSubcategoryServices();
+
+            //Images Service
+            services.AddScoped<IImageService, ImageService>();
         
         }
 
@@ -79,9 +84,8 @@ namespace Jumia_Clone.Configuration
             // category repository
             services.AddScoped<ICategoryRepository, CategoryRepository>();
 
-            // Add other repositories here as your project grows
-            // Example: services.AddScoped<IProductRepository, ProductRepository>();
-            // Example: services.AddScoped<IOrderRepository, OrderRepository>();
+            // product repository
+            services.AddScoped<IProductRepository, ProductRepository>();
         }
 
         private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)
