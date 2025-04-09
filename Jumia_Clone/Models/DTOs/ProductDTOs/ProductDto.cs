@@ -1,6 +1,5 @@
 ﻿using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductImageDTOs;
-using Jumia_Clone.Models.DTOs.ProductVariantDTOs;
 
 namespace Jumia_Clone.Models.DTOs.ProductDTOs
 {
@@ -29,7 +28,7 @@ namespace Jumia_Clone.Models.DTOs.ProductDTOs
         public int ReviewCount { get; set; }
 
         public List<ProductImageDto> Images { get; set; }
-        public List<ProductVariantDto> Variants { get; set; }
+        public List<Jumia_Clone.Models.DTOs.ProductVariantDTOs2.ProductVariantDto> Variants { get; set; }
         public List<ProductAttributeValueDto> AttributeValues { get; set; }
     }
 }

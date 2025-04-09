@@ -3,16 +3,13 @@ using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.ProductImageDTOs;
-using Jumia_Clone.Models.DTOs.ProductVariantDTOs;
+using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 using Jumia_Clone.Models.DTOs.VariantAttributeDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace Jumia_Clone.Repositories.Implementation
 {
@@ -162,7 +159,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 // Process variants if any
                 if (productDto.Variants != null && productDto.Variants.Any())
                 {
-                    foreach (var variantDto in productDto.Variants)
+                    foreach (CreateProductVariantDto variantDto in productDto.Variants)
                     {
                         var variant = new ProductVariant
                         {
@@ -1040,7 +1037,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 VariantImageUrl = variant.VariantImageUrl,
                 IsDefault = variant.IsDefault ?? false,
                 IsAvailable = variant.IsAvailable ?? false,
-                Attributes = variant.VariantAttributes?.Select(va => new VariantAttributeDto
+                Attributes = variant.VariantAttributes?.Select(va => new Jumia_Clone.Models.DTOs.ProductDTOs.VariantAttributeDto
                 {
                     VariantAttributeId = va.VariantAttributeId,
                     VariantId = va.VariantId,

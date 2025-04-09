@@ -2,8 +2,7 @@
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.ProductImageDTOs;
-using Jumia_Clone.Models.DTOs.ProductVariantDTOs;
-using System.Threading.Tasks;
+using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 
 namespace Jumia_Clone.Repositories.Interfaces
 {

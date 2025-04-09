@@ -1,6 +1,6 @@
 ﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
-using Jumia_Clone.Models.DTOs.ProductVariantDTOs;
+using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 using Jumia_Clone.Models.Enums;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;

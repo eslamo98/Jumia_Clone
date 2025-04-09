@@ -1,16 +1,21 @@
-﻿using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
+﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Models.Entities;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Jumia_Clone.Repositories.Interfaces
 {
     public interface ISubcategoryService
     {
-        Task<List<Subcategorydto>> GetSubcategoriesByCategory(int CategoryId);
+        Task<IEnumerable<Subcategorydto>> GetSubcategoriesByCategory(int categoryId, PaginationDto paginationDto);
+
         Task<Subcategorydto> CreateSubcategory(CreateSubcategoryDto subcategoryDto);
-        Task<Subcategorydto> UpdateSubcategoryAsync(int subcategoryId, EditSubcategoryDto subcategoryDto);
-        Task<bool> SoftDeleteSubcategory(int subcategoryId); 
-        Task<Subcategorydto> GetSubcategoryByIdAsync(int subcategoryId);
-        Task<Subcategorydto> RestoreSubcategory(int subcategoryId);
+        Task<Subcategorydto> UpdateSubcategory(int subcategoryId, EditSubcategoryDto subcategoryDto);
+        Task DeleteSubcategory(int subcategoryId);
+        Task<Subcategorydto> GetSubcategoryById(int subcategoryId);
+        // Task<Subcategorydto> RestoreSubcategory(int subcategoryId);
+        Task<IEnumerable<SearchSubcategoryDto>> SearchByNameOrDescription(string searchTerm, PaginationDto pagination);
+
 
 
     }

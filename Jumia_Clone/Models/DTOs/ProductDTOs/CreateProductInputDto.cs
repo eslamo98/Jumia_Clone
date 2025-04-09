@@ -1,5 +1,5 @@
 ﻿using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
-using Jumia_Clone.Models.DTOs.ProductVariantDTOs;
+using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 
 namespace Jumia_Clone.Models.DTOs.ProductDTOs
 {

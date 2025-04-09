@@ -1,4 +1,5 @@
 ﻿using Jumia_Clone.Data;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
@@ -17,10 +18,11 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         // Get Subcategories by Category
-        public async Task<List<Subcategorydto>> GetSubcategoriesByCategory(int CategoryId)
+        public async Task<IEnumerable<Subcategorydto>> GetSubcategoriesByCategory(int categoryId, PaginationDto paginationDto)
+
         {
             var subcategories = await _context.SubCategories
-                .Where(sc => sc.CategoryId == CategoryId && sc.IsActive == true) // Handle nullable IsActive
+                .Where(sc => sc.CategoryId == categoryId && sc.IsActive == true) 
                 .Select(sc => new Subcategorydto
                 {
                     SubcategoryId = sc.SubcategoryId,
@@ -68,7 +70,7 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         // Update Subcategory
-        public async Task<Subcategorydto> UpdateSubcategoryAsync(int subcategoryId, EditSubcategoryDto subcategoryDto)
+        public async Task<Subcategorydto> UpdateSubcategory(int subcategoryId, EditSubcategoryDto subcategoryDto)
         {
 
             var subcategory = await _context.SubCategories
@@ -107,26 +109,47 @@ namespace Jumia_Clone.Repositories.Implementation
             };
         }
 
-        // Soft Delete Subcategory
-        public async Task<bool> SoftDeleteSubcategory(int subcategoryId)
+        //  Delete Subcategory
+        public async Task DeleteSubcategory(int subcategoryId)
         {
-            var subcategory = await _context.SubCategories
-                .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId && (sc.IsActive ?? false)); // Handle nullable bool
-
-            if (subcategory == null)
+            using (var transaction = await _context.Database.BeginTransactionAsync())
             {
-                return false; // Subcategory not found or already deleted
+                try
+                {
+                    var subcategory = await _context.SubCategories
+                        .Include(s => s.Products)             
+                        .Include(s => s.ProductAttributes)  
+                        .FirstOrDefaultAsync(s => s.SubcategoryId ==subcategoryId);
+
+                    if (subcategory == null)
+                        throw new KeyNotFoundException("Subcategory not found");
+
+                    // Remove all associated product attributes
+                    _context.ProductAttributes.RemoveRange(subcategory.ProductAttributes);
+
+                    // Remove all associated products
+                    _context.Products.RemoveRange(subcategory.Products);
+
+ 
+                    _context.SubCategories.Remove(subcategory);
+
+                    
+                    await _context.SaveChangesAsync();
+
+                    
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    // Rollback the transaction if any error occurs
+                    await transaction.RollbackAsync();
+                    throw;
+                }
             }
-
-            subcategory.IsActive = false; // Mark as inactive (soft delete)
-            _context.SubCategories.Update(subcategory);
-
-            await _context.SaveChangesAsync();
-            return true; // Success
         }
 
         // Get Subcategory by ID
-        public async Task<Subcategorydto> GetSubcategoryByIdAsync(int subcategoryId)
+        public async Task<Subcategorydto> GetSubcategoryById(int subcategoryId)
         {
             var subcategory = await _context.SubCategories
                 .Where(sc => sc.SubcategoryId == subcategoryId)
@@ -150,34 +173,54 @@ namespace Jumia_Clone.Repositories.Implementation
             return subcategory;
         }
 
-        // Restore Soft-Deleted Subcategory
-        public async Task<Subcategorydto> RestoreSubcategory(int subcategoryId)
+
+        //// Restore Soft-Deleted Subcategory
+        //public async Task<Subcategorydto> RestoreSubcategory(int subcategoryId)
+        //{
+        //    var subcategory = await _context.SubCategories
+        //        .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId && sc.IsActive == false); // Find soft-deleted
+
+        //    if (subcategory == null)
+        //    {
+        //        return null; // Subcategory not found or already active
+        //    }
+
+        //    subcategory.IsActive = true; // Restore by setting IsActive to true
+        //    _context.SubCategories.Update(subcategory);
+
+        //    await _context.SaveChangesAsync();
+
+        //    var subcategoryDto = new Subcategorydto
+        //    {
+        //        SubcategoryId = subcategory.SubcategoryId,
+        //        Name = subcategory.Name,
+        //        CategoryId = subcategory.CategoryId,
+        //        Description = subcategory.Description,
+        //        ImageUrl = subcategory.ImageUrl,
+        //        IsActive = subcategory.IsActive.HasValue, // Updated status
+        //        ProductCount = subcategory.Products.Count
+        //    };
+
+        //    return subcategoryDto;
+        //}
+        public async Task<IEnumerable<SearchSubcategoryDto>> SearchByNameOrDescription(string searchTerm, PaginationDto pagination)
         {
-            var subcategory = await _context.SubCategories
-                .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId && sc.IsActive == false); // Find soft-deleted
+            var subcategories = await _context.SubCategories
+                .Where(sc => (sc.Name.Contains(searchTerm) || sc.Description.Contains(searchTerm)) && sc.IsActive==true)
+                .Skip(pagination.PageSize * pagination.PageNumber).Take(pagination.PageSize)
+                .Select(sc => new SearchSubcategoryDto
+                {
+                    Name = sc.Name,
+                    Description = sc.Description,
+                    IsActive = sc.IsActive ?? false,
+                    ImageUrl = sc.ImageUrl,
+                })
+                .ToListAsync();
 
-            if (subcategory == null)
-            {
-                return null; // Subcategory not found or already active
-            }
-
-            subcategory.IsActive = true; // Restore by setting IsActive to true
-            _context.SubCategories.Update(subcategory);
-
-            await _context.SaveChangesAsync();
-
-            var subcategoryDto = new Subcategorydto
-            {
-                SubcategoryId = subcategory.SubcategoryId,
-                Name = subcategory.Name,
-                CategoryId = subcategory.CategoryId,
-                Description = subcategory.Description,
-                ImageUrl = subcategory.ImageUrl,
-                IsActive = subcategory.IsActive.HasValue, // Updated status
-                ProductCount = subcategory.Products.Count
-            };
-
-            return subcategoryDto;
+            return subcategories;
         }
+
+
+
     }
 }

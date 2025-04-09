@@ -66,6 +66,7 @@ namespace Jumia_Clone.Repositories.Implementation
 
                     await _context.Customers.AddAsync(customer);
                     await _context.SaveChangesAsync();
+                    user.UserId = customer.UserId;
                 }
                 // If seller, it should be registered through RegisterSellerAsync method
                 else if (registerDto.UserType.ToLower() == "seller")
@@ -160,7 +161,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 // Map to response DTO
                 return new UserResponseDto
                 {
-                    UserId = user.UserId,
+                    UserId = seller.UserId,
                     Email = user.Email,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
@@ -350,27 +351,43 @@ namespace Jumia_Clone.Repositories.Implementation
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.UserType),
-                new Claim("FirstName", user.FirstName),
-                new Claim("LastName", user.LastName)
-            };
+        new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.UserType),
+        new Claim("FirstName", user.FirstName),
+        new Claim("LastName", user.LastName)
+    };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            // Use the correct configuration paths
+            var jwtKey = _configuration["JwtSettings:SecretKey"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                throw new InvalidOperationException("JWT Secret Key is not configured. Please check your application settings.");
+            }
+
+            var jwtIssuer = _configuration["JwtSettings:Issuer"] ?? "default-issuer";
+            var jwtAudience = _configuration["JwtSettings:Audience"] ?? "default-audience";
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            // Get expiry from config or default to 60 minutes
+            int expiryInMinutes = 60;
+            if (int.TryParse(_configuration["JwtSettings:ExpiryInMinutes"], out int configExpiry))
+            {
+                expiryInMinutes = configExpiry;
+            }
 
             // Create access token
             var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
+                issuer: jwtIssuer,
+                audience: jwtAudience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(1), // Token valid for 1 hour
+                expires: DateTime.UtcNow.AddMinutes(expiryInMinutes),
                 signingCredentials: creds
             );
 
-            // Create refresh token (simple GUID for demo purposes)
-            // In production, use a more secure method and store with expiration
+            // Create refresh token
             var refreshToken = Guid.NewGuid().ToString();
 
             return new TokenResponseDto
@@ -379,17 +396,25 @@ namespace Jumia_Clone.Repositories.Implementation
                 RefreshToken = refreshToken
             };
         }
-
         private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
         {
+            var jwtKey = _configuration["JwtSettings:SecretKey"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                throw new InvalidOperationException("JWT Secret Key is not configured. Please check your application settings.");
+            }
+
+            var jwtIssuer = _configuration["JwtSettings:Issuer"] ?? "default-issuer";
+            var jwtAudience = _configuration["JwtSettings:Audience"] ?? "default-audience";
+
             var tokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                 ValidateIssuer = true,
-                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidIssuer = jwtIssuer,
                 ValidateAudience = true,
-                ValidAudience = _configuration["Jwt:Audience"],
+                ValidAudience = jwtAudience,
                 ValidateLifetime = false // Don't validate lifetime for refresh tokens
             };
 
