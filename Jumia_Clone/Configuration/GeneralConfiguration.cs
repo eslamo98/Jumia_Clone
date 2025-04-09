@@ -1,4 +1,5 @@
 ﻿using Jumia_Clone.Data;
+using Jumia_Clone.Repositories;
 using Jumia_Clone.Repositories.Implementation;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services;
