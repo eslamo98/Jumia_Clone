@@ -68,7 +68,7 @@ namespace Jumia_Clone.Configuration
         private static void RegisterRepositories(IServiceCollection services)
         {
             // User repository
-            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 
             // Auth repository
             services.AddScoped<IAuthRepository, AuthRepository>();
