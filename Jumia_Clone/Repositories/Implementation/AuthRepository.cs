@@ -1,26 +1,28 @@
-﻿using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
+﻿using Jumia_Clone.Data;
+using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
-using Jumia_Clone.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Jumia_Clone.Repositories.Implementation
 {
     public class AuthRepository : IAuthRepository
     {
+        private readonly ApplicationDbContext _context;
         private readonly IUserRepository _userRepository;
-        private readonly JwtService _jwtService;
         private readonly IConfiguration _configuration;
 
-        public AuthRepository(
-            IUserRepository userRepository,
-            JwtService jwtService,
-            IConfiguration configuration)
+        public AuthRepository(ApplicationDbContext context, IUserRepository userRepository, IConfiguration configuration)
         {
+            _context = context;
             _userRepository = userRepository;
-            _jwtService = jwtService;
             _configuration = configuration;
         }
 
@@ -29,10 +31,10 @@ namespace Jumia_Clone.Repositories.Implementation
             // Check if email already exists
             if (await _userRepository.EmailExistsAsync(registerDto.Email))
             {
-                throw new Exception("Email is already registered");
+                throw new Exception("Email already exists");
             }
 
-            // Create new user
+            // Create user
             var user = new User
             {
                 Email = registerDto.Email,
@@ -46,39 +48,56 @@ namespace Jumia_Clone.Repositories.Implementation
                 IsActive = true
             };
 
-            // Save user to database
-            await _userRepository.CreateUserAsync(user);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Create customer record if user type is customer
-            if (registerDto.UserType == "customer")
+            try
             {
-                var customer = new Customer
+                // Create user first to get UserId
+                await _userRepository.CreateUserAsync(user);
+
+                // Create corresponding customer or seller record
+                if (registerDto.UserType.ToLower() == "customer")
+                {
+                    var customer = new Customer
+                    {
+                        UserId = user.UserId,
+                        LastLogin = DateTime.UtcNow
+                    };
+
+                    await _context.Customers.AddAsync(customer);
+                    await _context.SaveChangesAsync();
+                }
+                // If seller, it should be registered through RegisterSellerAsync method
+                else if (registerDto.UserType.ToLower() == "seller")
+                {
+                    throw new Exception("Please use the register-seller endpoint to register as a seller");
+                }
+
+                await transaction.CommitAsync();
+
+                // Generate tokens
+                var tokenResponse = GenerateTokens(user);
+
+                // Save refresh token
+                await _userRepository.SaveRefreshTokenAsync(user.UserId, tokenResponse.RefreshToken);
+
+                // Map to response DTO
+                return new UserResponseDto
                 {
                     UserId = user.UserId,
-                    LastLogin = DateTime.UtcNow
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    UserType = user.UserType,
+                    Token = tokenResponse.Token,
+                    RefreshToken = tokenResponse.RefreshToken
                 };
-
-                // In a real implementation, you would add the customer to the database here
             }
-
-            // Generate JWT token and refresh token
-            var token = _jwtService.GenerateJwtToken(user);
-            var refreshToken = _jwtService.GenerateRefreshToken();
-
-            // Save refresh token
-            await _userRepository.SaveRefreshTokenAsync(user.UserId, refreshToken);
-
-            // Return user response with token
-            return new UserResponseDto
+            catch (Exception)
             {
-                UserId = user.UserId,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                UserType = user.UserType,
-                Token = token,
-                RefreshToken = refreshToken
-            };
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<UserResponseDto> RegisterSellerAsync(RegisterUserDto registerDto, SellerRegistrationDto sellerDto)
@@ -86,10 +105,16 @@ namespace Jumia_Clone.Repositories.Implementation
             // Check if email already exists
             if (await _userRepository.EmailExistsAsync(registerDto.Email))
             {
-                throw new Exception("Email is already registered");
+                throw new Exception("Email already exists");
             }
 
-            // Create new user
+            // Verify user type is seller
+            if (registerDto.UserType.ToLower() != "seller")
+            {
+                throw new Exception("User type must be 'seller' for seller registration");
+            }
+
+            // Create user
             var user = new User
             {
                 Email = registerDto.Email,
@@ -97,46 +122,58 @@ namespace Jumia_Clone.Repositories.Implementation
                 FirstName = registerDto.FirstName,
                 LastName = registerDto.LastName,
                 PhoneNumber = registerDto.PhoneNumber,
-                UserType = "seller", // Force user type to seller
+                UserType = "seller",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 IsActive = true
             };
 
-            // Save user to database
-            await _userRepository.CreateUserAsync(user);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Create seller record
-            var seller = new Seller
+            try
             {
-                UserId = user.UserId,
-                BusinessName = sellerDto.BusinessName,
-                BusinessDescription = sellerDto.BusinessDescription,
-                BusinessLogo = sellerDto.BusinessLogo,
-                IsVerified = false,
-                Rating = 0.0
-            };
+                // Create user first to get UserId
+                await _userRepository.CreateUserAsync(user);
 
-            // In a real implementation, you would add the seller to the database here
+                // Create seller record
+                var seller = new Seller
+                {
+                    UserId = user.UserId,
+                    BusinessName = sellerDto.BusinessName,
+                    BusinessDescription = sellerDto.BusinessDescription,
+                    BusinessLogo = sellerDto.BusinessLogo,
+                    IsVerified = false, // Sellers need verification
+                    Rating = 0.0
+                };
 
-            // Generate JWT token and refresh token
-            var token = _jwtService.GenerateJwtToken(user);
-            var refreshToken = _jwtService.GenerateRefreshToken();
+                await _context.Sellers.AddAsync(seller);
+                await _context.SaveChangesAsync();
 
-            // Save refresh token
-            await _userRepository.SaveRefreshTokenAsync(user.UserId, refreshToken);
+                await transaction.CommitAsync();
 
-            // Return user response with token
-            return new UserResponseDto
+                // Generate tokens
+                var tokenResponse = GenerateTokens(user);
+
+                // Save refresh token
+                await _userRepository.SaveRefreshTokenAsync(user.UserId, tokenResponse.RefreshToken);
+
+                // Map to response DTO
+                return new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    UserType = user.UserType,
+                    Token = tokenResponse.Token,
+                    RefreshToken = tokenResponse.RefreshToken
+                };
+            }
+            catch (Exception)
             {
-                UserId = user.UserId,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                UserType = user.UserType,
-                Token = token,
-                RefreshToken = refreshToken
-            };
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<UserResponseDto> LoginAsync(LoginDto loginDto)
@@ -144,146 +181,163 @@ namespace Jumia_Clone.Repositories.Implementation
             // Get user by email
             var user = await _userRepository.GetUserByEmailAsync(loginDto.Email);
 
-            // Check if user exists and password is correct
             if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
             {
-                throw new Exception("Invalid email or password");
+                throw new Exception("Invalid credentials");
             }
 
-            // Check if user is active
-            if (user.IsActive == false)
+            if (user.IsActive != true)
             {
-                throw new Exception("User is inactive");
+                throw new Exception("User account is inactive");
             }
 
-            // Generate JWT token and refresh token
-            var token = _jwtService.GenerateJwtToken(user);
-            var refreshToken = _jwtService.GenerateRefreshToken();
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Save refresh token
-            await _userRepository.SaveRefreshTokenAsync(user.UserId, refreshToken);
-
-            // Update last login for customer
-            if (user.UserType == "customer" && user.Customer != null)
+            try
             {
-                user.Customer.LastLogin = DateTime.UtcNow;
-                // In a real implementation, you would update the customer in the database
+                // Update last login for customer
+                if (user.UserType.ToLower() == "customer" && user.Customer != null)
+                {
+                    user.Customer.LastLogin = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                }
+
+                // Generate tokens
+                var tokenResponse = GenerateTokens(user);
+
+                // Save refresh token
+                await _userRepository.SaveRefreshTokenAsync(user.UserId, tokenResponse.RefreshToken);
+
+                await transaction.CommitAsync();
+
+                // Map to response DTO
+                return new UserResponseDto
+                {
+                    UserId = user.UserId,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    UserType = user.UserType,
+                    Token = tokenResponse.Token,
+                    RefreshToken = tokenResponse.RefreshToken
+                };
             }
-
-            // Return user response with token
-            return new UserResponseDto
+            catch (Exception)
             {
-                UserId = user.UserId,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                UserType = user.UserType,
-                Token = token,
-                RefreshToken = refreshToken
-            };
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<TokenResponseDto> RefreshTokenAsync(string refreshToken)
         {
-            // Get principal from expired token
-            var principal = _jwtService.GetPrincipalFromExpiredToken(refreshToken);
+            // Extract user ID from the refresh token (assuming JWT format)
+            var principal = GetPrincipalFromExpiredToken(refreshToken);
+            var userId = int.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
 
-            // Get user ID from claims
-            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null)
-            {
-                throw new Exception("Invalid token");
-            }
-
-            var userId = int.Parse(userIdClaim.Value);
-
-            // Validate refresh token
-            var isValidRefreshToken = await _userRepository.ValidateRefreshTokenAsync(userId, refreshToken);
-            if (!isValidRefreshToken)
+            // Validate the refresh token
+            if (!await _userRepository.ValidateRefreshTokenAsync(userId, refreshToken))
             {
                 throw new Exception("Invalid refresh token");
             }
 
             // Get user
             var user = await _userRepository.GetUserByIdAsync(userId);
-            if (user == null)
+            if (user == null || user.IsActive != true)
             {
-                throw new Exception("User not found");
+                throw new Exception("User not found or inactive");
             }
 
-            // Generate new JWT token and refresh token
-            var newToken = _jwtService.GenerateJwtToken(user);
-            var newRefreshToken = _jwtService.GenerateRefreshToken();
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Save new refresh token
-            await _userRepository.SaveRefreshTokenAsync(userId, newRefreshToken);
-
-            // Return new tokens
-            return new TokenResponseDto
+            try
             {
-                Token = newToken,
-                RefreshToken = newRefreshToken
-            };
+                // Generate new tokens
+                var tokenResponse = GenerateTokens(user);
+
+                // Save new refresh token
+                await _userRepository.SaveRefreshTokenAsync(user.UserId, tokenResponse.RefreshToken);
+
+                await transaction.CommitAsync();
+
+                return tokenResponse;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
         {
-            // Get user
             var user = await _userRepository.GetUserByIdAsync(userId);
             if (user == null)
             {
                 throw new Exception("User not found");
             }
 
-            // Verify current password
+            // Verify old password
             if (!VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
             {
                 throw new Exception("Current password is incorrect");
             }
 
-            // Update password
-            user.PasswordHash = HashPassword(changePasswordDto.NewPassword);
-            user.UpdatedAt = DateTime.UtcNow;
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Save changes
-            return await _userRepository.UpdateUserAsync(user);
+            try
+            {
+                // Set new password
+                user.PasswordHash = HashPassword(changePasswordDto.NewPassword);
+                user.UpdatedAt = DateTime.UtcNow;
+
+                bool result = await _userRepository.UpdateUserAsync(user);
+
+                await transaction.CommitAsync();
+
+                return result;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
-        // Helper methods for password hashing and verification
-        private static string HashPassword(string password)
+        #region Helper Methods
+
+        private string HashPassword(string password)
         {
+            // For real applications, use a proper password hashing library like BCrypt.Net-Next
             using var hmac = new HMACSHA512();
             var salt = hmac.Key;
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
 
             // Combine salt and hash
-            var result = new byte[salt.Length + hash.Length];
-            Array.Copy(salt, 0, result, 0, salt.Length);
-            Array.Copy(hash, 0, result, salt.Length, hash.Length);
+            var hashBytes = new byte[salt.Length + hash.Length];
+            Array.Copy(salt, 0, hashBytes, 0, salt.Length);
+            Array.Copy(hash, 0, hashBytes, salt.Length, hash.Length);
 
-            return Convert.ToBase64String(result);
+            return Convert.ToBase64String(hashBytes);
         }
 
-        private static bool VerifyPassword(string password, string storedHash)
+        private bool VerifyPassword(string password, string storedHash)
         {
-            // Decode stored hash
+            // For real applications, use a proper password hashing library like BCrypt.Net-Next
             var hashBytes = Convert.FromBase64String(storedHash);
 
-            // Extract salt and hash
-            var salt = new byte[64]; // HMACSHA512 key size
-            var hash = new byte[hashBytes.Length - salt.Length];
+            // Extract salt (first 64 bytes)
+            var salt = new byte[64];
+            Array.Copy(hashBytes, 0, salt, 0, 64);
 
-            Array.Copy(hashBytes, 0, salt, 0, salt.Length);
-            Array.Copy(hashBytes, salt.Length, hash, 0, hash.Length);
-
-            // Compute hash for provided password
+            // Hash the input password with the extracted salt
             using var hmac = new HMACSHA512(salt);
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
 
-            // Compare hashes
-            for (var i = 0; i < computedHash.Length; i++)
+            // Compare the computed hash with the stored hash
+            for (int i = 0; i < computedHash.Length; i++)
             {
-                if (computedHash[i] != hash[i])
+                if (computedHash[i] != hashBytes[64 + i])
                 {
                     return false;
                 }
@@ -291,5 +345,66 @@ namespace Jumia_Clone.Repositories.Implementation
 
             return true;
         }
+
+        private TokenResponseDto GenerateTokens(User user)
+        {
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.UserType),
+                new Claim("FirstName", user.FirstName),
+                new Claim("LastName", user.LastName)
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            // Create access token
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(1), // Token valid for 1 hour
+                signingCredentials: creds
+            );
+
+            // Create refresh token (simple GUID for demo purposes)
+            // In production, use a more secure method and store with expiration
+            var refreshToken = Guid.NewGuid().ToString();
+
+            return new TokenResponseDto
+            {
+                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                RefreshToken = refreshToken
+            };
+        }
+
+        private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
+        {
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"])),
+                ValidateIssuer = true,
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _configuration["Jwt:Audience"],
+                ValidateLifetime = false // Don't validate lifetime for refresh tokens
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
+
+            if (!(securityToken is JwtSecurityToken jwtSecurityToken) ||
+                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha512, StringComparison.InvariantCultureIgnoreCase))
+            {
+                throw new SecurityTokenException("Invalid token");
+            }
+
+            return principal;
+        }
+
+        #endregion
     }
 }
