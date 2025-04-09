@@ -15,6 +15,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<Subcategorydto> GetSubcategoryById(int subcategoryId);
         // Task<Subcategorydto> RestoreSubcategory(int subcategoryId);
         Task<IEnumerable<SearchSubcategoryDto>> SearchByNameOrDescription(string searchTerm, PaginationDto pagination);
+        Task<IEnumerable<Subcategorydto>> GetAllSubcategoriesAsync(PaginationDto pagination, bool includeInactive);
+
 
 
 

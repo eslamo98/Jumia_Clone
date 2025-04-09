@@ -1,10 +1,7 @@
 ﻿using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Jumia_Clone.Repositories;
-using Jumia_Clone.Services;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
-using Jumia_Clone.Repositories.Implementation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Controllers
@@ -44,6 +41,36 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+
+        // Get Subcategory by ID
+        [HttpGet("{subcategoryId}")]
+        public async Task<IActionResult> GetById(int subcategoryId)
+        {
+            try
+            {
+                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
+                if (subcategory == null)
+                {
+                    return NotFound(new ApiErrorResponse(
+                        new[] { "Subcategory not found." },
+                        "Subcategory not found."
+                    ));
+                }
+
+                return Ok(new ApiResponse<Subcategorydto>(
+                    subcategory,
+                    "Successfully retrieved subcategory."
+                ));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse(
+                    new[] { ex.Message },
+                    "An error occurred while retrieving the subcategory."
+                ));
+            }
+        }
+
 
 
 
@@ -149,35 +176,6 @@ namespace Jumia_Clone.Controllers
                 return StatusCode(500, new ApiErrorResponse(
                     new[] { ex.Message },
                     "An error occurred while deleting the subcategory."
-                ));
-            }
-        }
-
-        // Get Subcategory by ID
-        [HttpGet("{subcategoryId}")]
-        public async Task<IActionResult> GetById(int subcategoryId)
-        {
-            try
-            {
-                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
-                if (subcategory == null)
-                {
-                    return NotFound(new ApiErrorResponse(
-                        new[] { "Subcategory not found." },
-                        "Subcategory not found."
-                    ));
-                }
-
-                return Ok(new ApiResponse<Subcategorydto>(
-                    subcategory,
-                    "Successfully retrieved subcategory."
-                ));
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiErrorResponse(
-                    new[] { ex.Message },
-                    "An error occurred while retrieving the subcategory."
                 ));
             }
         }
