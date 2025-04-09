@@ -22,11 +22,29 @@ namespace Jumia_Clone.Controllers
             try
             {
                 var result = await _repository.GetUserByIdAsync(id);
-                return result.Success ? Ok(result) : NotFound(result);
+
+                if (!result.Success)
+                    return NotFound(new ApiResponse<UserResponseDto>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
+
+                return Ok(new ApiResponse<UserResponseDto>
+                {
+                    Success = true,
+                    Message = "User retrieved successfully",
+                    Data = result.Data
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<UserResponseDto>(null, $"Error retrieving user: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving the user",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
 
@@ -36,11 +54,29 @@ namespace Jumia_Clone.Controllers
             try
             {
                 var result = await _repository.GetAllUsersAsync();
-                return result.Success ? Ok(result) : BadRequest(result);
+
+                if (!result.Success)
+                    return BadRequest(new ApiResponse<List<UserResponseDto>>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
+
+                return Ok(new ApiResponse<List<UserResponseDto>>
+                {
+                    Success = true,
+                    Message = "Users retrieved successfully",
+                    Data = result.Data
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<List<UserResponseDto>>(null, $"Error retrieving users: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving users",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
 
@@ -50,14 +86,42 @@ namespace Jumia_Clone.Controllers
             try
             {
                 if (!ModelState.IsValid)
-                    return BadRequest(new ApiResponse<UserResponseDto>(null, "Invalid user data", false));
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid user data",
+                        ErrorMessages = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToArray()
+                    });
 
                 var result = await _repository.CreateUserAsync(dto);
-                return result.Success ? CreatedAtAction(nameof(GetUserById), new { id = result.Data.Id }, result) : BadRequest(result);
+
+                if (!result.Success)
+                    return BadRequest(new ApiResponse<UserResponseDto>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
+
+                return CreatedAtAction(
+                    nameof(GetUserById),
+                    new { id = result.Data.Id },
+                    new ApiResponse<UserResponseDto>
+                    {
+                        Success = true,
+                        Message = "User created successfully",
+                        Data = result.Data
+                    });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<UserResponseDto>(null, $"Error creating user: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while creating the user",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
 
@@ -67,14 +131,39 @@ namespace Jumia_Clone.Controllers
             try
             {
                 if (!ModelState.IsValid)
-                    return BadRequest(new ApiResponse<UserResponseDto>(null, "Invalid user data", false));
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid user data",
+                        ErrorMessages = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToArray()
+                    });
 
                 var result = await _repository.UpdateUserAsync(id, dto);
-                return result.Success ? Ok(result) : NotFound(result);
+
+                if (!result.Success)
+                    return NotFound(new ApiResponse<UserResponseDto>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
+
+                return Ok(new ApiResponse<UserResponseDto>
+                {
+                    Success = true,
+                    Message = "User updated successfully",
+                    Data = result.Data
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<UserResponseDto>(null, $"Error updating user: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating the user",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
 
@@ -84,17 +173,39 @@ namespace Jumia_Clone.Controllers
             try
             {
                 var result = await _repository.DeleteUserAsync(id);
+
                 if (!result.Success)
                 {
                     if (result.Message.Contains("active orders") || result.Message.Contains("active products"))
-                        return BadRequest(result); // 400 for business rule violation
-                    return NotFound(result); // 404 if user not found
+                        return BadRequest(new ApiResponse<string>
+                        {
+                            Success = false,
+                            Message = result.Message,
+                            Data = null
+                        });
+
+                    return NotFound(new ApiResponse<string>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
                 }
-                return Ok(result); // 200 on success
+
+                return Ok(new ApiResponse<string>
+                {
+                    Success = true,
+                    Message = "User deleted successfully",
+                    Data = null
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<string>(null, $"Error deleting user: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while deleting the user",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
 
@@ -104,14 +215,39 @@ namespace Jumia_Clone.Controllers
             try
             {
                 if (!ModelState.IsValid)
-                    return BadRequest(new ApiResponse<string>(null, "Invalid password data", false));
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid password data",
+                        ErrorMessages = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToArray()
+                    });
 
                 var result = await _repository.ChangePasswordAsync(id, dto);
-                return result.Success ? Ok(result) : BadRequest(result);
+
+                if (!result.Success)
+                    return BadRequest(new ApiResponse<string>
+                    {
+                        Success = false,
+                        Message = result.Message,
+                        Data = null
+                    });
+
+                return Ok(new ApiResponse<string>
+                {
+                    Success = true,
+                    Message = "Password changed successfully",
+                    Data = null
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<string>(null, $"Error changing password: {ex.Message}", false));
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while changing the password",
+                    ErrorMessages = new[] { ex.Message }
+                });
             }
         }
     }
