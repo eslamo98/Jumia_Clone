@@ -22,32 +22,30 @@ namespace Jumia_Clone.Controllers
 
         // Get Subcategories by Category
         [HttpGet("category/{categoryId}")]
-        public async Task<IActionResult> GetAll(int categoryId)
+        public async Task<IActionResult> GetAll(int categoryId, [FromQuery] PaginationDto pagination)
         {
             try
             {
-                var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId);
-                if (subcategories == null || subcategories.Count == 0)
-                {
-                    return NotFound(new ApiErrorResponse(
-                        new[] { "No subcategories found for this category." },
-                        "Subcategories not found."
-                    ));
-                }
+                var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId, pagination);
 
-                return Ok(new ApiResponse<List<Subcategorydto>>(
-                    subcategories,
-                    "Successfully retrieved subcategories."
-                ));
+                return Ok(new ApiResponse<IEnumerable<Subcategorydto>>
+                {
+                    Message = "Successfully retrieved subcategories.",
+                    Data = subcategories,
+                    Success = true
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiErrorResponse(
-                    new[] { ex.Message },
-                    "An error occurred while retrieving subcategories."
-                ));
+                return StatusCode(500, new ApiErrorResponse()
+                {
+                    Message = "An error occurred while retrieving subcategories.",
+                    ErrorMessages = new string[] { ex.Message }
+                });
             }
         }
+
+
 
         // Create a Subcategory
         // POST: api/Subcategory

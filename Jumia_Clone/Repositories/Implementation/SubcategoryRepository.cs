@@ -110,7 +110,7 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         //  Delete Subcategory
-        public async Task DeleteSubcategory(int id)
+        public async Task DeleteSubcategory(int subcategoryId)
         {
             using (var transaction = await _context.Database.BeginTransactionAsync())
             {
@@ -119,7 +119,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     var subcategory = await _context.SubCategories
                         .Include(s => s.Products)             
                         .Include(s => s.ProductAttributes)  
-                        .FirstOrDefaultAsync(s => s.SubcategoryId == id);
+                        .FirstOrDefaultAsync(s => s.SubcategoryId ==subcategoryId);
 
                     if (subcategory == null)
                         throw new KeyNotFoundException("Subcategory not found");
