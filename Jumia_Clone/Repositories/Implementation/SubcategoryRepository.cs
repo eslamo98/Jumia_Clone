@@ -18,10 +18,11 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         // Get Subcategories by Category
-        public async Task<List<Subcategorydto>> GetSubcategoriesByCategory(int CategoryId)
+        public async Task<IEnumerable<Subcategorydto>> GetSubcategoriesByCategory(int categoryId, PaginationDto paginationDto)
+
         {
             var subcategories = await _context.SubCategories
-                .Where(sc => sc.CategoryId == CategoryId && sc.IsActive == true) // Handle nullable IsActive
+                .Where(sc => sc.CategoryId == categoryId && sc.IsActive == true) 
                 .Select(sc => new Subcategorydto
                 {
                     SubcategoryId = sc.SubcategoryId,
@@ -109,20 +110,42 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         //  Delete Subcategory
-        public async Task<bool> DeleteSubcategory(int subcategoryId)
+        public async Task DeleteSubcategory(int id)
         {
-            var subcategory = await _context.SubCategories
-                .FirstOrDefaultAsync(sc => sc.SubcategoryId == subcategoryId ); // Handle nullable bool
-
-            if (subcategory == null)
+            using (var transaction = await _context.Database.BeginTransactionAsync())
             {
-                return false; // Subcategory not found or already deleted
-            }
+                try
+                {
+                    var subcategory = await _context.SubCategories
+                        .Include(s => s.Products)             
+                        .Include(s => s.ProductAttributes)  
+                        .FirstOrDefaultAsync(s => s.SubcategoryId == id);
 
-            _context.SubCategories.Remove(subcategory);
-       
-            await _context.SaveChangesAsync();
-            return true; // Success
+                    if (subcategory == null)
+                        throw new KeyNotFoundException("Subcategory not found");
+
+                    // Remove all associated product attributes
+                    _context.ProductAttributes.RemoveRange(subcategory.ProductAttributes);
+
+                    // Remove all associated products
+                    _context.Products.RemoveRange(subcategory.Products);
+
+ 
+                    _context.SubCategories.Remove(subcategory);
+
+                    
+                    await _context.SaveChangesAsync();
+
+                    
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    // Rollback the transaction if any error occurs
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
         }
 
         // Get Subcategory by ID
