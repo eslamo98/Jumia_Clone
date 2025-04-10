@@ -1,10 +1,8 @@
 ﻿using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Jumia_Clone.Repositories;
-using Jumia_Clone.Services;
+using Jumia_Clone.Services.Interfaces;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
-using Jumia_Clone.Repositories.Implementation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Controllers
@@ -14,19 +12,31 @@ namespace Jumia_Clone.Controllers
     public class SubcategoryController : ControllerBase
     {
         private readonly ISubcategoryService _subcategoryService;
+        private readonly IImageService _imageService;
 
-        public SubcategoryController(ISubcategoryService subcategoryService)
+        public SubcategoryController(ISubcategoryService subcategoryService, IImageService imageService)
         {
             _subcategoryService = subcategoryService;
+            _imageService = imageService;
         }
 
-        // Get Subcategories by Category
+        // GET: api/Subcategory/category/{categoryId}
+        // Get all subcategories of a specific category
         [HttpGet("category/{categoryId}")]
         public async Task<IActionResult> GetAll(int categoryId, [FromQuery] PaginationDto pagination)
         {
             try
             {
                 var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId, pagination);
+
+                // Set full image URLs
+                foreach (var subcategory in subcategories)
+                {
+                    if (!string.IsNullOrEmpty(subcategory.ImageUrl))
+                    {
+                        subcategory.ImageUrl = _imageService.GetImageUrl(subcategory.ImageUrl);
+                    }
+                }
 
                 return Ok(new ApiResponse<IEnumerable<Subcategorydto>>
                 {
@@ -44,13 +54,23 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
-        // GET: api/SubCategories
-        [HttpGet]
+
+        // GET: api/Subcategory/categories/subcategory
+        // Get all subcategories (with optional inactive flag)
+        [HttpGet("categories/subcategory")]
         public async Task<IActionResult> GetAllSubcategories([FromQuery] PaginationDto pagination, [FromQuery] bool include_inactive = false)
         {
             try
             {
                 var subcategories = await _subcategoryService.GetAllSubcategoriesAsync(pagination, include_inactive);
+
+                foreach (var subcategory in subcategories)
+                {
+                    if (!string.IsNullOrEmpty(subcategory.ImageUrl))
+                    {
+                        subcategory.ImageUrl = _imageService.GetImageUrl(subcategory.ImageUrl);
+                    }
+                }
 
                 return Ok(new ApiResponse<IEnumerable<Subcategorydto>>(
                     subcategories,
@@ -66,19 +86,26 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-        // Get Subcategory by ID
+        // GET: api/Subcategory/{subcategoryId}
+        // Get subcategory by ID
         [HttpGet("{subcategoryId}")]
         public async Task<IActionResult> GetById(int subcategoryId)
         {
             try
             {
                 var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
+
                 if (subcategory == null)
                 {
                     return NotFound(new ApiErrorResponse(
                         new[] { "Subcategory not found." },
                         "Subcategory not found."
                     ));
+                }
+
+                if (!string.IsNullOrEmpty(subcategory.ImageUrl))
+                {
+                    subcategory.ImageUrl = _imageService.GetImageUrl(subcategory.ImageUrl);
                 }
 
                 return Ok(new ApiResponse<Subcategorydto>(
@@ -95,10 +122,8 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-
-
-        // Create a Subcategory
         // POST: api/Subcategory
+        // Create a new subcategory
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateSubcategoryDto subcategoryDto)
         {
@@ -118,6 +143,11 @@ namespace Jumia_Clone.Controllers
             {
                 var createdSubcategory = await _subcategoryService.CreateSubcategory(subcategoryDto);
 
+                if (!string.IsNullOrEmpty(createdSubcategory.ImageUrl))
+                {
+                    createdSubcategory.ImageUrl = _imageService.GetImageUrl(createdSubcategory.ImageUrl);
+                }
+
                 return CreatedAtAction(
                     nameof(GetById),
                     new { subcategoryId = createdSubcategory.SubcategoryId },
@@ -131,7 +161,7 @@ namespace Jumia_Clone.Controllers
             {
                 return StatusCode(500, new ApiErrorResponse
                 {
-                    Message = "There is already a subcategory with name " + subcategoryDto.Name,
+                    Message = "There is already a subcategory with the name " + subcategoryDto.Name,
                     ErrorMessages = new[] { ex.Message }
                 });
             }
@@ -145,20 +175,26 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-
-        // Update a Subcategory
+        // PUT: api/Subcategory/{subcategoryId}
+        // Update an existing subcategory
         [HttpPut("{subcategoryId}")]
         public async Task<IActionResult> Update(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
         {
             try
             {
                 var updatedSubcategory = await _subcategoryService.UpdateSubcategory(subcategoryId, subcategoryDto);
+
                 if (updatedSubcategory == null)
                 {
                     return NotFound(new ApiErrorResponse(
                         new[] { "Subcategory not found." },
                         "Subcategory not found."
                     ));
+                }
+
+                if (!string.IsNullOrEmpty(updatedSubcategory.ImageUrl))
+                {
+                    updatedSubcategory.ImageUrl = _imageService.GetImageUrl(updatedSubcategory.ImageUrl);
                 }
 
                 return Ok(new ApiResponse<Subcategorydto>(
@@ -175,13 +211,15 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-        // DELETE: api/SubCategories/{id}
+        // DELETE: api/Subcategory/{id}
+        // delete a subcategory
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
                 await _subcategoryService.DeleteSubcategory(id);
+
                 return Ok(new ApiResponse<object>(
                     null,
                     "Subcategory deleted successfully."
@@ -203,9 +241,8 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-     
-
-        // Search Subcategories by Name or Description
+        // GET: api/Subcategory/search
+        // Search subcategories by name or description
         [HttpGet("search")]
         public async Task<IActionResult> Search([FromQuery] string searchTerm, [FromQuery] PaginationDto pagination)
         {
@@ -214,23 +251,31 @@ namespace Jumia_Clone.Controllers
                 if (string.IsNullOrWhiteSpace(searchTerm))
                 {
                     return BadRequest(new ApiErrorResponse(
-                        new[] { "Search term cannot be empty" },
+                        new[] { "Search term cannot be empty." },
                         "Search term is required."
                     ));
                 }
 
                 var result = await _subcategoryService.SearchByNameOrDescription(searchTerm, pagination);
 
+                foreach (var subcategory in result)
+                {
+                    if (!string.IsNullOrEmpty(subcategory.ImageUrl))
+                    {
+                        subcategory.ImageUrl = _imageService.GetImageUrl(subcategory.ImageUrl);
+                    }
+                }
+
                 if (result != null && result.Any())
                 {
                     return Ok(new ApiResponse<IEnumerable<SearchSubcategoryDto>>(
                         result,
-                        "Successfully retrieved matching subcategories"
+                        "Successfully retrieved matching subcategories."
                     ));
                 }
 
                 return NotFound(new ApiErrorResponse(
-                    new[] { "No matching subcategories found" },
+                    new[] { "No matching subcategories found." },
                     "No subcategories found matching the search criteria."
                 ));
             }
@@ -238,7 +283,7 @@ namespace Jumia_Clone.Controllers
             {
                 return StatusCode(500, new ApiErrorResponse(
                     new[] { ex.Message },
-                    "An error occurred while retrieving subcategories"
+                    "An error occurred while searching for subcategories."
                 ));
             }
         }
