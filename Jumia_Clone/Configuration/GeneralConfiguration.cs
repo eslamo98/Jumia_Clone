@@ -1,7 +1,10 @@
 ﻿using Jumia_Clone.Data;
+using Jumia_Clone.Repositories;
 using Jumia_Clone.Repositories.Implementation;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services;
+using Jumia_Clone.Services.Implementation;
+using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using System.Threading.RateLimiting;
@@ -87,6 +90,7 @@ namespace Jumia_Clone.Configuration
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles(); 
 
             // Use CORS
             app.UseCors("CorsPolicy");
@@ -107,9 +111,14 @@ namespace Jumia_Clone.Configuration
         {
             // JWT Service
             services.AddScoped<JwtService>();
-           // services.AddSubcategoryServices();
+
+            // Subcategory Service
             services.AddScoped<SubcategoryService>();
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+            // Images Service
+            services.AddScoped<IImageService, ImageService>();
+
             // Add other services here as your project grows
             // Example: services.AddScoped<IEmailService, EmailService>();
             // Example: services.AddScoped<IFileStorageService, FileStorageService>();
@@ -119,16 +128,19 @@ namespace Jumia_Clone.Configuration
         {
             // User repository
             services.AddScoped<IUserRepository, UserRepository>();
-
             // Auth repository
             services.AddScoped<IAuthRepository, AuthRepository>();
+            // Subcategory repository
             services.AddScoped<ISubcategoryService, SubcategoryRepository>();
-
+            services.AddScoped<ICartRepository, CartRepository>();
             // ✅ Add this line for Order Repository
             services.AddScoped<IOrderRepository, OrderRepository>();
-
             // ✅ Address repository
             services.AddScoped<IAddressRepository, AddressRepository>();
+            // category repository
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
+            // product repository
+            services.AddScoped<IProductRepository, ProductRepository>();
             // Add other repositories here as your project grows
             // Example: services.AddScoped<IProductRepository, ProductRepository>();
             // Example: services.AddScoped<IOrderRepository, OrderRepository>();
