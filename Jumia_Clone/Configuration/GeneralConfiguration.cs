@@ -3,7 +3,8 @@ using Jumia_Clone.Repositories.Implementation;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services;
 using Microsoft.EntityFrameworkCore;
-
+using AutoMapper;
+using System.Threading.RateLimiting;
 namespace Jumia_Clone.Configuration
 {
     public static class GeneralConfiguration
@@ -30,6 +31,47 @@ namespace Jumia_Clone.Configuration
 
             // Configure Database
             ConfigureDatabase(services, configuration);
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+            // ✅ Add in-memory cache
+            services.AddMemoryCache();
+
+            // ✅ Add Rate Limiting
+            services.AddRateLimiter(options =>
+            {
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
+                        factory: partition => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 100,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+
+                options.AddPolicy("standard", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
+                        factory: partition => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 20,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+
+                options.AddPolicy("strict", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
+                        factory: partition => new FixedWindowRateLimiterOptions
+                        {
+                            AutoReplenishment = true,
+                            PermitLimit = 10,
+                            QueueLimit = 0,
+                            Window = TimeSpan.FromMinutes(1)
+                        }));
+            });
 
             return services;
         }
@@ -49,6 +91,10 @@ namespace Jumia_Clone.Configuration
             // Use CORS
             app.UseCors("CorsPolicy");
 
+
+            // ✅ Enable rate limiter middleware
+            app.UseRateLimiter();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
@@ -63,6 +109,7 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<JwtService>();
            // services.AddSubcategoryServices();
             services.AddScoped<SubcategoryService>();
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
             // Add other services here as your project grows
             // Example: services.AddScoped<IEmailService, EmailService>();
             // Example: services.AddScoped<IFileStorageService, FileStorageService>();
@@ -77,6 +124,11 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<ISubcategoryService, SubcategoryRepository>();
 
+            // ✅ Add this line for Order Repository
+            services.AddScoped<IOrderRepository, OrderRepository>();
+
+            // ✅ Address repository
+            services.AddScoped<IAddressRepository, AddressRepository>();
             // Add other repositories here as your project grows
             // Example: services.AddScoped<IProductRepository, ProductRepository>();
             // Example: services.AddScoped<IOrderRepository, OrderRepository>();
