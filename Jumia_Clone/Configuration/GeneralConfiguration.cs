@@ -113,7 +113,7 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<JwtService>();
 
             // Subcategory Service
-            services.AddScoped<SubcategoryService>();
+            //services.AddScoped<SubcategoryService>();
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             // Images Service
