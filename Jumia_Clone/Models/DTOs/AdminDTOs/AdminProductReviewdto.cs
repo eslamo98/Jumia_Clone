@@ -1,10 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-
-namespace Jumia_Clone.Models.Entities
+﻿namespace Jumia_Clone.Models.DTOs.AdminDTOs
 {
-    public class AdminProductReview
+    public class AdminProductReviewdto
     {
-     
         public int AdminProductReviewId { get; set; }
         public int ProductId { get; set; }
         public int AdminId { get; set; }
@@ -12,8 +9,5 @@ namespace Jumia_Clone.Models.Entities
         public string NewStatus { get; set; }
         public string Notes { get; set; }
         public DateTime ReviewedAt { get; set; }
-
-        public virtual Product Product { get; set; }
-        public virtual Admin Admin { get; set; }
     }
 }
