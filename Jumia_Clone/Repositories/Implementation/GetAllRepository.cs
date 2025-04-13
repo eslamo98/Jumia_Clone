@@ -32,32 +32,47 @@ namespace Jumia_Clone.Repositories.Implementation
             _context = context;
         }
 
-        public async Task<IEnumerable<AdminProductReviewdto>> GetAllAdminProductReviews(int AdminProductReviewId, PaginationDto pagination)
+        public async Task<IEnumerable<AdminProductReviewdto>> GetAllAdminProductReviews(PaginationDto pagination)
         {
-            //var adminProductReviews = await _context.AdminProductReview
-            //   .Where(r => r.ReviewId == ReviewId)
-            //   .Select(r => new AdminProductReviewdto
-            //   {
-            //       ReviewId = r.ReviewId,
-            //       ProductId = r.ProductId,
-            //       AdminId = r.AdminId,
-            //       PreviousStatus = r.PreviousStatus,
-            //       NewStatus = r.NewStatus,
-            //       Notes = r.Notes,
-            //       ReviewedAt = r.ReviewedAt
-            //   })
-            //   .ToListAsync();
+            //var query = _context.AdminProductReview.AsQueryable();
+            //
+            //if (pagination != null)
+            //{
+            //    query = query
+            //        .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+            //        .Take(pagination.PageSize);
+            //}
+            //
+            //var adminProductReviews = await query
+            //    .Select(r => new AdminProductReviewdto
+            //    {
+            //        ReviewId = r.ReviewId,
+            //        ProductId = r.ProductId,
+            //        AdminId = r.AdminId,
+            //        PreviousStatus = r.PreviousStatus,
+            //        NewStatus = r.NewStatus,
+            //        Notes = r.Notes,
+            //        ReviewedAt = r.ReviewedAt
+            //    })
+            //    .ToListAsync();
+            //
             //return adminProductReviews ?? new List<AdminProductReviewdto>();
 
             throw new NotImplementedException();
         }
-        
-        
 
-        public async Task<IEnumerable<Admindto>> GetAllAdmins(int AdminId, PaginationDto pagination)
+        public async Task<IEnumerable<Admindto>> GetAllAdmins(PaginationDto pagination)
         {
-            var admins = await _context.Admins
-                .Where(a => a.AdminId == AdminId)
+            var query = _context.Admins.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var admins = await query
                 .Select(a => new Admindto
                 {
                     AdminId = a.AdminId,
@@ -66,13 +81,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     Permissions = a.Permissions
                 })
                 .ToListAsync();
+
             return admins ?? new List<Admindto>();
         }
 
-        public async Task<IEnumerable<Coupondto>> GetAllCoupons(int CouponId, PaginationDto pagination)
+        public async Task<IEnumerable<Coupondto>> GetAllCoupons(PaginationDto pagination)
         {
-            var coupons = await _context.Coupons
-                .Where(c => c.CouponId == CouponId)
+            var query = _context.Coupons.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var coupons = await query
                 .Select(c => new Coupondto
                 {
                     CouponId = c.CouponId,
@@ -88,13 +112,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     UsageCount = c.UsageCount
                 })
                 .ToListAsync();
+
             return coupons ?? new List<Coupondto>();
         }
 
-        public  async Task<IEnumerable<Customerdto>> GetAllCustomers(int CustomerId, PaginationDto pagination)
+        public async Task<IEnumerable<Customerdto>> GetAllCustomers(PaginationDto pagination)
         {
-            var customers = await _context.Customers
-                .Where(c => c.CustomerId == CustomerId)
+            var query = _context.Customers.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var customers = await query
                 .Select(c => new Customerdto
                 {
                     CustomerId = c.CustomerId,
@@ -102,14 +135,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     LastLogin = c.LastLogin
                 })
                 .ToListAsync();
-            return customers ?? new List<Customerdto>();
 
+            return customers ?? new List<Customerdto>();
         }
 
-        public async  Task<IEnumerable<Ratingdto>> GetAllRatings(int RatingId, PaginationDto pagination)
+        public async Task<IEnumerable<Ratingdto>> GetAllRatings(PaginationDto pagination)
         {
-            var ratings = await _context.Ratings
-                .Where(r => r.RatingId == RatingId)
+            var query = _context.Ratings.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var ratings = await query
                 .Select(r => new Ratingdto
                 {
                     RatingId = r.RatingId,
@@ -122,13 +163,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     HelpfulCount = r.HelpfulCount
                 })
                 .ToListAsync();
+
             return ratings ?? new List<Ratingdto>();
         }
 
-        public  async Task<IEnumerable<ReturnItemdto>> GetAllReturnItems(int ReturnItemId, PaginationDto pagination)
+        public async Task<IEnumerable<ReturnItemdto>> GetAllReturnItems(PaginationDto pagination)
         {
-            var returnItems = await _context.ReturnItems
-                .Where(ri => ri.ReturnItemId == ReturnItemId)
+            var query = _context.ReturnItems.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var returnItems = await query
                 .Select(ri => new ReturnItemdto
                 {
                     ReturnItemId = ri.ReturnItemId,
@@ -140,13 +190,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     RefundAmount = ri.RefundAmount
                 })
                 .ToListAsync();
+
             return returnItems ?? new List<ReturnItemdto>();
         }
 
-        public async  Task<IEnumerable<ReturnRequestdto>> GetAllReturnRequests(int ReturnRequestId, PaginationDto pagination)
+        public async Task<IEnumerable<ReturnRequestdto>> GetAllReturnRequests(PaginationDto pagination)
         {
-            var returnRequests = await _context.ReturnRequests
-                .Where(rr => rr.ReturnId == ReturnRequestId)
+            var query = _context.ReturnRequests.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var returnRequests = await query
                 .Select(rr => new ReturnRequestdto
                 {
                     ReturnId = rr.ReturnId,
@@ -163,14 +222,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     Comments = rr.Comments
                 })
                 .ToListAsync();
-            return returnRequests ?? new List<ReturnRequestdto>();
 
+            return returnRequests ?? new List<ReturnRequestdto>();
         }
 
-        public async Task<IEnumerable<SearchHistorydto>> GetAllSearchHistory(int SearchId, PaginationDto pagination)
+        public async Task<IEnumerable<SearchHistorydto>> GetAllSearchHistory(PaginationDto pagination)
         {
-            var searchHistory = await _context.SearchHistories
-                .Where(sh => sh.SearchId == SearchId)
+            var query = _context.SearchHistories.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var searchHistory = await query
                 .Select(sh => new SearchHistorydto
                 {
                     SearchId = sh.SearchId,
@@ -184,13 +251,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     Filters = sh.Filters
                 })
                 .ToListAsync();
+
             return searchHistory ?? new List<SearchHistorydto>();
         }
 
-        public async  Task<IEnumerable<SearchResultClickdto>> GetAllSearchResultClicks(int ClickId, PaginationDto pagination)
+        public async Task<IEnumerable<SearchResultClickdto>> GetAllSearchResultClicks(PaginationDto pagination)
         {
-            var searchResultClicks = await _context.SearchResultClicks
-                .Where(src => src.ClickId == ClickId)
+            var query = _context.SearchResultClicks.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var searchResultClicks = await query
                 .Select(src => new SearchResultClickdto
                 {
                     ClickId = src.ClickId,
@@ -200,13 +276,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     PositionInResults = src.PositionInResults
                 })
                 .ToListAsync();
+
             return searchResultClicks ?? new List<SearchResultClickdto>();
         }
 
-        public async Task<IEnumerable<Sellerdto>> GetAllsellers(int sellerId, PaginationDto pagination)
+        public async Task<IEnumerable<Sellerdto>> GetAllsellers(PaginationDto pagination)
         {
-          var sellers = await _context.Sellers
-                .Where(s => s.SellerId == sellerId)
+            var query = _context.Sellers.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var sellers = await query
                 .Select(s => new Sellerdto
                 {
                     SellerId = s.SellerId,
@@ -219,13 +304,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     Rating = s.Rating
                 })
                 .ToListAsync();
+
             return sellers ?? new List<Sellerdto>();
         }
 
-        public async Task<IEnumerable<UserCoupondto>> GetAllUserCoupons(int UserCouponId, PaginationDto pagination)
+        public async Task<IEnumerable<UserCoupondto>> GetAllUserCoupons(PaginationDto pagination)
         {
-            var userCoupons = await _context.UserCoupons
-                .Where(uc => uc.UserCouponId == UserCouponId)
+            var query = _context.UserCoupons.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var userCoupons = await query
                 .Select(uc => new UserCoupondto
                 {
                     UserCouponId = uc.UserCouponId,
@@ -236,13 +330,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     UsedAt = uc.UsedAt
                 })
                 .ToListAsync();
+
             return userCoupons ?? new List<UserCoupondto>();
         }
 
-        public async Task<IEnumerable<UserProductInteractiondto>> GetAllUserProductInteractions(int InteractionId, PaginationDto pagination)
+        public async Task<IEnumerable<UserProductInteractiondto>> GetAllUserProductInteractions(PaginationDto pagination)
         {
-           var userProductInteractions = await _context.UserProductInteractions
-                .Where(up => up.InteractionId == InteractionId)
+            var query = _context.UserProductInteractions.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var userProductInteractions = await query
                 .Select(up => new UserProductInteractiondto
                 {
                     InteractionId = up.InteractionId,
@@ -255,13 +358,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     InteractionData = up.InteractionData
                 })
                 .ToListAsync();
+
             return userProductInteractions ?? new List<UserProductInteractiondto>();
         }
 
-        public async  Task<IEnumerable<UserRecommendationdto>> GetAllUserRecommendations(int UserRecommendationId, PaginationDto pagination)
+        public async Task<IEnumerable<UserRecommendationdto>> GetAllUserRecommendations(PaginationDto pagination)
         {
-           var userRecommendations = await _context.UserRecommendations
-                .Where(ur => ur.UserRecommendationId == UserRecommendationId)
+            var query = _context.UserRecommendations.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var userRecommendations = await query
                 .Select(ur => new UserRecommendationdto
                 {
                     UserRecommendationId = ur.UserRecommendationId,
@@ -272,13 +384,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     LastUpdated = ur.LastUpdated
                 })
                 .ToListAsync();
+
             return userRecommendations ?? new List<UserRecommendationdto>();
         }
 
-        public async  Task<IEnumerable<Userdto>> GetAllUsers(int UserId, PaginationDto pagination)
+        public async Task<IEnumerable<Userdto>> GetAllUsers(PaginationDto pagination)
         {
-            var users = await _context.Users
-                .Where(u => u.UserId == UserId)
+            var query = _context.Users.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var users = await query
                 .Select(u => new Userdto
                 {
                     UserId = u.UserId,
@@ -293,13 +414,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     IsActive = u.IsActive
                 })
                 .ToListAsync();
+
             return users ?? new List<Userdto>();
         }
 
-        public async  Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(int WishlistItemId, PaginationDto pagination)
+        public async Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(PaginationDto pagination)
         {
-            var wishlistItems = await _context.WishlistItems
-                .Where(wi => wi.WishlistItemId == WishlistItemId)
+            var query = _context.WishlistItems.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var wishlistItems = await query
                 .Select(wi => new WishlistItemdto
                 {
                     WishlistItemId = wi.WishlistItemId,
@@ -308,13 +438,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     AddedAt = wi.AddedAt
                 })
                 .ToListAsync();
+
             return wishlistItems ?? new List<WishlistItemdto>();
         }
 
-        public async  Task<IEnumerable<TrendingProductdto>> GetTrendingProducts(int TrendingId, PaginationDto pagination)
+        public async Task<IEnumerable<TrendingProductdto>> GetTrendingProducts(PaginationDto pagination)
         {
-            var trendingProducts = await _context.TrendingProducts
-                .Where(tp => tp.TrendingId == TrendingId)
+            var query = _context.TrendingProducts.AsQueryable();
+
+            if (pagination != null)
+            {
+                query = query
+                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                    .Take(pagination.PageSize);
+            }
+
+            var trendingProducts = await query
                 .Select(tp => new TrendingProductdto
                 {
                     TrendingId = tp.TrendingId,
@@ -326,6 +465,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     LastUpdated = tp.LastUpdated
                 })
                 .ToListAsync();
+
             return trendingProducts ?? new List<TrendingProductdto>();
         }
     }

@@ -12,7 +12,6 @@ namespace Jumia_Clone.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class CartController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;

@@ -15,7 +15,6 @@ using Jumia_Clone.Models.DTOs.UserProductInteractionDTOs;
 using Jumia_Clone.Models.DTOs.UserRecommendationDTOs;
 using Jumia_Clone.Models.DTOs.WishlistItemDTOs;
 using Jumia_Clone.Repositories.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jumia_Clone.Controllers
@@ -32,11 +31,11 @@ namespace Jumia_Clone.Controllers
 
 
         [HttpGet("admins")]
-        public async Task<IActionResult> GetAllAdmins([FromQuery] int adminId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllAdmins([FromQuery] PaginationDto pagination)
         {
             try
             { 
-                var admins = await _getAllRepository.GetAllAdmins(adminId, pagination);
+                var admins = await _getAllRepository.GetAllAdmins(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Admindto>>
                 {
@@ -56,11 +55,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("coupons")]
-        public async Task<IActionResult> GetAllCoupons([FromQuery] int couponId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllCoupons([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var coupons = await _getAllRepository.GetAllCoupons(couponId, pagination);
+                var coupons = await _getAllRepository.GetAllCoupons(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Coupondto>>
                 {
@@ -81,11 +80,11 @@ namespace Jumia_Clone.Controllers
 
        
         [HttpGet("Customers")]
-        public async Task<IActionResult> GetAllCustomers([FromQuery] int customerId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllCustomers([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var customers = await _getAllRepository.GetAllCustomers(customerId, pagination);
+                var customers = await _getAllRepository.GetAllCustomers(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Customerdto>>
                 {
@@ -106,11 +105,11 @@ namespace Jumia_Clone.Controllers
 
         
         [HttpGet("Ratings")]
-        public async Task<IActionResult> GetAllRatings([FromQuery] int ratingId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllRatings([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var ratings = await _getAllRepository.GetAllRatings(ratingId, pagination);
+                var ratings = await _getAllRepository.GetAllRatings(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Ratingdto>>
                 {
@@ -131,11 +130,11 @@ namespace Jumia_Clone.Controllers
         }
        
         [HttpGet("ReturnItems")]
-        public async Task<IActionResult> GetAllReturnItems([FromQuery] int returnItemId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllReturnItems([FromQuery] PaginationDto pagination)
         {
             try
             { 
-                var returnItems = await _getAllRepository.GetAllReturnItems(returnItemId,pagination);
+                var returnItems = await _getAllRepository.GetAllReturnItems(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<ReturnItemdto>>
                 {
@@ -156,11 +155,11 @@ namespace Jumia_Clone.Controllers
 
     
         [HttpGet("ReturnRequests")]
-        public async Task<IActionResult> GetAllReturnRequests([FromQuery] int returnRequestId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllReturnRequests([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var returnRequests = await _getAllRepository.GetAllReturnRequests(returnRequestId, pagination);
+                var returnRequests = await _getAllRepository.GetAllReturnRequests(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<ReturnRequestdto>>
                 {
@@ -180,11 +179,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("SearchHistory")]
-        public async Task<IActionResult> GetAllSearchHistory([FromQuery] int searchId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllSearchHistory([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var searchHistory = await _getAllRepository.GetAllSearchHistory(searchId, pagination);
+                var searchHistory = await _getAllRepository.GetAllSearchHistory(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<SearchHistorydto>>
                 {
@@ -204,11 +203,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("SearchResultClicks")]
-        public async Task<IActionResult> GetAllSearchResultClicks([FromQuery] int clickId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllSearchResultClicks([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var searchResultClicks = await _getAllRepository.GetAllSearchResultClicks(clickId, pagination);
+                var searchResultClicks = await _getAllRepository.GetAllSearchResultClicks(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<SearchResultClickdto>>
                 {
@@ -228,11 +227,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("Sellers")]
-        public async Task<IActionResult> GetAllSellers([FromQuery] int sellerId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllSellers([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var sellers = await _getAllRepository.GetAllsellers(sellerId, pagination);
+                var sellers = await _getAllRepository.GetAllsellers(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Sellerdto>>
                 {
@@ -252,11 +251,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("UserCoupons")]
-        public async Task<IActionResult> GetAllUserCoupons([FromQuery] int userCouponId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllUserCoupons([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var userCoupons = await _getAllRepository.GetAllUserCoupons(userCouponId, pagination);
+                var userCoupons = await _getAllRepository.GetAllUserCoupons(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<UserCoupondto>>
                 {
@@ -277,11 +276,11 @@ namespace Jumia_Clone.Controllers
 
 
         [HttpGet("UserProductInteractions")]
-        public async Task<IActionResult> GetAllUserProductInteractions([FromQuery] int interactionId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllUserProductInteractions([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var userProductInteractions = await _getAllRepository.GetAllUserProductInteractions(interactionId, pagination);
+                var userProductInteractions = await _getAllRepository.GetAllUserProductInteractions(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<UserProductInteractiondto>>
                 {
@@ -301,11 +300,11 @@ namespace Jumia_Clone.Controllers
         }
 
         [HttpGet("UserRecommendations")]
-        public async Task<IActionResult> GetAllUserRecommendations([FromQuery] int userRecommendationId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllUserRecommendations([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var userRecommendations = await _getAllRepository.GetAllUserRecommendations(userRecommendationId, pagination);
+                var userRecommendations = await _getAllRepository.GetAllUserRecommendations(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<UserRecommendationdto>>
                 {
@@ -324,11 +323,11 @@ namespace Jumia_Clone.Controllers
             }
         }
         [HttpGet("Users")]
-        public async Task<IActionResult> GetAllUsers([FromQuery] int userId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllUsers([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var users = await _getAllRepository.GetAllUsers(userId, pagination);
+                var users = await _getAllRepository.GetAllUsers(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<Userdto>>
                 {
@@ -347,11 +346,11 @@ namespace Jumia_Clone.Controllers
             }
         }
         [HttpGet("WishlistItems")]
-        public async Task<IActionResult> GetAllWishlistItems([FromQuery] int wishlistItemId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetAllWishlistItems([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var wishlistItems = await _getAllRepository.GetAllWishlistItems(wishlistItemId, pagination);
+                var wishlistItems = await _getAllRepository.GetAllWishlistItems(pagination);
 
                 return Ok(new ApiResponse<IEnumerable<WishlistItemdto>>
                 {
@@ -370,11 +369,11 @@ namespace Jumia_Clone.Controllers
             }
         }
         [HttpGet("TrendingProducts")]
-        public async Task<IActionResult> GetTrendingProducts([FromQuery] int trendingId, [FromQuery] PaginationDto pagination)
+        public async Task<IActionResult> GetTrendingProducts([FromQuery] PaginationDto pagination)
         {
             try
             {
-                var trendingProducts = await _getAllRepository.GetTrendingProducts(trendingId, pagination);
+                var trendingProducts = await _getAllRepository.GetTrendingProducts( pagination);
 
                 return Ok(new ApiResponse<IEnumerable<TrendingProductdto>>
                 {
