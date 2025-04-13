@@ -8,5 +8,4 @@
         User,
         ProductVariant,
     }
-
 }
