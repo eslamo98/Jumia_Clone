@@ -8,6 +8,9 @@ using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using System.Threading.RateLimiting;
+using Swashbuckle.AspNetCore.SwaggerUI;
+using Microsoft.OpenApi.Models;
+
 namespace Jumia_Clone.Configuration
 {
     public static class GeneralConfiguration
@@ -36,10 +39,10 @@ namespace Jumia_Clone.Configuration
             ConfigureDatabase(services, configuration);
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-            // ✅ Add in-memory cache
+            // Add in-memory cache
             services.AddMemoryCache();
 
-            // ✅ Add Rate Limiting
+            // Add Rate Limiting
             services.AddRateLimiter(options =>
             {
                 options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
@@ -79,71 +82,112 @@ namespace Jumia_Clone.Configuration
             return services;
         }
 
+        public static IServiceCollection AddOpenApi(this IServiceCollection services)
+        {
+            services.AddEndpointsApiExplorer(); // Add this line - it's important!
+
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Jumia Clone API", Version = "v1" });
+
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT"
+                });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
+
+            return services;
+        }
+
         public static WebApplication ConfigureMiddleware(this WebApplication app)
         {
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
+            // Always enable Swagger for all environments
+            app.UseSwagger(c =>
             {
-                app.MapOpenApi();
-                app.UseSwaggerUI(op => op.SwaggerEndpoint("/openapi/v1.json", "v1"));
+                // This fixes the issue with the 404 error
+                c.RouteTemplate = "swagger/{documentName}/swagger.json";
+            });
 
-            }
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "Jumia Clone API v1");
+                options.DocExpansion(DocExpansion.None);
+                options.DefaultModelsExpandDepth(-1);
+            });
 
             app.UseHttpsRedirection();
-            app.UseStaticFiles(); 
+            app.UseStaticFiles();
 
             // Use CORS
             app.UseCors("CorsPolicy");
 
-
-            // ✅ Enable rate limiter middleware
+            // Use Rate Limiter
             app.UseRateLimiter();
 
-            app.UseAuthentication();
+            // This order is important!
+            app.UseAuthentication(); // Must come before UseAuthorization
             app.UseAuthorization();
 
             app.MapControllers();
 
             return app;
         }
-
         private static void RegisterServices(IServiceCollection services)
         {
             // JWT Service
             services.AddScoped<JwtService>();
 
-            // Subcategory Service
-            //services.AddScoped<SubcategoryService>();
+            // Other services
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             // Images Service
             services.AddScoped<IImageService, ImageService>();
-
-            // Add other services here as your project grows
-            // Example: services.AddScoped<IEmailService, EmailService>();
-            // Example: services.AddScoped<IFileStorageService, FileStorageService>();
         }
 
         private static void RegisterRepositories(IServiceCollection services)
         {
             // User repository
             services.AddScoped<IUserRepository, UserRepository>();
+
             // Auth repository
             services.AddScoped<IAuthRepository, AuthRepository>();
+
             // Subcategory repository
             services.AddScoped<ISubcategoryService, SubcategoryRepository>();
             services.AddScoped<ICartRepository, CartRepository>();
-            // ✅ Add this line for Order Repository
+
+            // Order Repository
             services.AddScoped<IOrderRepository, OrderRepository>();
-            // ✅ Address repository
+
+            // Address repository
             services.AddScoped<IAddressRepository, AddressRepository>();
-            // category repository
+
+            // Category repository
             services.AddScoped<ICategoryRepository, CategoryRepository>();
-            // product repository
+
+            // Product repository
             services.AddScoped<IProductRepository, ProductRepository>();
-            // Add other repositories here as your project grows
-            // Example: services.AddScoped<IProductRepository, ProductRepository>();
-            // Example: services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<IGetAllRepository, GetAllRepository>();
         }
 
         private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)

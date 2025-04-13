@@ -10,8 +10,7 @@ namespace Jumia_Clone.Controllers
 {
     [Route("api/seller/products")]
     [ApiController]
-    [Authorize(Roles = "Seller")] // Assuming you have role-based authorization
-    public class ProductVariantsController : ControllerBase
+   public class ProductVariantsController : ControllerBase
     {
         private readonly IProductVariantRepository _variantRepository;
 
