@@ -12,7 +12,7 @@ namespace Jumia_Clone.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+  
     public class CartController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
@@ -28,11 +28,14 @@ namespace Jumia_Clone.Controllers
             _productRepository = productRepository;
             _imageService = imageService;
         }
+        //[HttpGet("test-token")]
+        //public IActionResult TestToken()
+        //{
+        //    var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
+        //    return Ok(claims);
+        //}
+   
 
-        private int GetCurrentCustomerId()
-        {
-            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-        }
 
         // GET: api/cart
         [HttpGet]
@@ -112,7 +115,8 @@ namespace Jumia_Clone.Controllers
                 return StatusCode(500, new ApiErrorResponse
                 {
                     Message = "An error occurred while adding item to cart",
-                    ErrorMessages = new string[] { ex.Message }
+                    ErrorMessages = new string[] { ex.Message,
+                     ex.StackTrace}
                 });
             }
         }
@@ -266,5 +270,25 @@ namespace Jumia_Clone.Controllers
                     .Count()
             };
         }
+
+
+        #region HelperMethod
+        private int GetCurrentCustomerId()
+        {
+            var customerIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(customerIdStr))
+            {
+                throw new UnauthorizedAccessException("User ID is missing or the user is not authenticated.");
+            }
+            if (!int.TryParse(customerIdStr, out int customerId))
+            {
+                throw new UnauthorizedAccessException("User ID is not a valid integer.");
+            }
+
+            return customerId;
+        }
+        #endregion
+
     }
 }
