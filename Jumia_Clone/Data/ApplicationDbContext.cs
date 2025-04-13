@@ -19,6 +19,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     public virtual DbSet<Address> Addresses { get; set; }
 
     public virtual DbSet<Admin> Admins { get; set; }
+  //  public virtual DbSet<AdminProductReview>  AdminProductReviews{ get; set; }
 
     public virtual DbSet<Affiliate> Affiliates { get; set; }
 
@@ -163,6 +164,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
                 .HasForeignKey<Admin>(d => d.UserId)
                 .HasConstraintName("FK__Admin__user_id__48CFD27E");
         });
+       
 
         modelBuilder.Entity<Affiliate>(entity =>
         {
