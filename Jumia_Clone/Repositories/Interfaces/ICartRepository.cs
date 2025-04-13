@@ -8,14 +8,34 @@ namespace Jumia_Clone.Repositories.Interfaces
 {
     public interface ICartRepository
     {
-        Task<CartDto> GetOrCreateCartAsync(int customerId, PaginationDto pagination);
-        Task<CartDto> GetCartProducts(List<CartItem> cartItems,PaginationDto pagination);
-        Task<CartItemDto> AddItemToCartAsync(int customerId, AddItemToCartDto addItemDto);
-        Task<bool>AddToCart(CartItem cartItem);
-        Task<CartItemDto> UpdateCartItemAsync(UpdateCartItemDto updateItemDto);
-        Task<bool> RemoveItemFromCartAsync(int cartItemId);
+        // Get cart by customer ID with the option to include cart items
+        Task<CartDto> GetCartByCustomerIdAsync(int userId, bool includeItems = true);
+
+        // Get cart summary (total items, subtotal)
+        Task<CartSummaryDto> GetCartSummaryByCustomerIdAsync(int customerId);
+
+        // Get cart item by ID
+        Task<CartItemDto> GetCartItemByIdAsync(int cartItemId);
+
+        // Add item to cart
+        Task<CartItemDto> AddCartItemAsync(int customerId, AddCartItemDto cartItemDto);
+
+        // Update cart item quantity
+        Task<CartItemDto> UpdateCartItemQuantityAsync(int customerId, UpdateCartItemDto updateCartItemDto);
+
+        // Remove item from cart
+        Task<bool> RemoveCartItemAsync(int customerId, int cartItemId);
+
+        // Clear all items from cart
         Task<bool> ClearCartAsync(int customerId);
-        Task<CartDto> GetCartAsync(int customerId, PaginationDto pagination);
-        Task<CartItemDto> GetCartItemAsync(int cartItemId);
+
+        // Check if product exists in cart
+        Task<bool> ProductExistsInCartAsync(int customerId, int productId, int? variantId = null);
+
+        // Check if cart item exists and belongs to the customer
+        Task<bool> CartItemExistsAndBelongsToCustomerAsync(int customerId, int cartItemId);
+
+        // Get cart items count
+        Task<int> GetCartItemsCountAsync(int customerId);
     }
 }

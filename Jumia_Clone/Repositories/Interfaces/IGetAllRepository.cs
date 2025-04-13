@@ -31,7 +31,6 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<IEnumerable<UserCoupondto>> GetAllUserCoupons(PaginationDto pagination);
         Task<IEnumerable<UserProductInteractiondto>> GetAllUserProductInteractions(PaginationDto pagination);
         Task<IEnumerable<UserRecommendationdto>> GetAllUserRecommendations(PaginationDto pagination);
-        Task<IEnumerable<Userdto>> GetAllUsers(PaginationDto pagination);
         Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(PaginationDto pagination);
         Task<IEnumerable<TrendingProductdto>> GetTrendingProducts(PaginationDto pagination);
     }

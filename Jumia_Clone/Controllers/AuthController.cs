@@ -76,7 +76,7 @@ namespace Jumia_Clone.Controllers
 
         [Authorize]
         [HttpPut("change-password")]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
+        public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordDto changePasswordDto)
         {
             try
             {

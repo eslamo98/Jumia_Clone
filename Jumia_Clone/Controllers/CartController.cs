@@ -1,248 +1,148 @@
-﻿using Jumia_Clone.Models.DTOs.CartDTOs;
-using Jumia_Clone.Models.DTOs.CartItemDtos;
-using Jumia_Clone.Models.DTOs.GeneralDTOs;
-using Jumia_Clone.Repositories.Interfaces;
-using Jumia_Clone.Services.Interfaces;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Caching.Memory;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.CartDTOs;
+using Jumia_Clone.Repositories.Interfaces;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace Jumia_Clone.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-  
-    public class CartController : ControllerBase
+    [Authorize]
+    public class CartsController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
-        private readonly IProductRepository _productRepository;
-        private readonly IImageService _imageService;
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<CartsController> _logger;
 
-        public CartController(
+        public CartsController(
             ICartRepository cartRepository,
-            IProductRepository productRepository,
-            IImageService imageService)
+            IMemoryCache cache,
+            ILogger<CartsController> logger)
         {
             _cartRepository = cartRepository;
-            _productRepository = productRepository;
-            _imageService = imageService;
+            _cache = cache;
+            _logger = logger;
         }
-        //[HttpGet("test-token")]
-        //public IActionResult TestToken()
-        //{
-        //    var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
-        //    return Ok(claims);
-        //}
 
+        // Helper method to get current customer ID
+        private int GetCurrentCustomerId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                throw new UnauthorizedAccessException("Unable to determine current user");
+            }
 
-        [HttpGet("getcartitem")]
-        public async Task<IActionResult> GetCartItem([FromQuery] int customerId,[FromQuery] PaginationDto pagination)
+            return userId;
+        }
+
+        // GET: api/carts
+        [HttpGet]
+        [EnableRateLimiting("standard")]
+        [ResponseCache(Duration = 30)]
+        public async Task<IActionResult> GetCart()
         {
             try
             {
-                var cartDto = await _cartRepository.GetCartAsync(customerId, pagination);
-                if (cartDto == null)
+                int customerId = GetCurrentCustomerId();
+                var cacheKey = $"cart_{customerId}";
+
+                // Try to get from cache first
+                if (_cache.TryGetValue(cacheKey, out ApiResponse<CartDto> cachedResult))
                 {
-                    return NotFound(new ApiResponse<CartDto>
-                    {
-                        Success = false,
-                        Message = "Cart not found",
-                        Data = null
-                    });
-                }
-                var cartItemDto = await _cartRepository.GetCartItemAsync(customerId);
-
-                return Ok(new ApiResponse<CartItemDto>
-                {
-                    Success = true,
-                    Message = "Cart item retrieved successfully",
-                    Data = cartItemDto
-                });
-
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiErrorResponse
-                {
-                    Message = "An error occurred while retrieving the cart item",
-                    ErrorMessages = new string[] { ex.Message }
-                });
-            }
-
-        }
-        //    // GET: api/cart
-        //    [HttpGet]
-        //public async Task<IActionResult> GetCart([FromQuery] int customerId, [FromQuery] PaginationDto pagination)
-        //{
-        //    try
-        //    {
-
-        //        var cartDto = await _cartRepository.GetOrCreateCartAsync(customerId, pagination);
-
-        //        // Enrich with product and variant details
-        //        foreach (var item in cartDto.Items)
-        //        {
-        //            var product = await _productRepository.GetProductByIdAsync(item.ProductId);
-        //            if (product != null)
-        //            {
-        //                if (!string.IsNullOrEmpty(product.MainImageUrl))
-        //                {
-        //                    product.MainImageUrl = _imageService.GetImageUrl(product.MainImageUrl);
-        //                }
-        //            }
-        //        }
-
-        //        return Ok(new ApiResponse<CartDto>
-        //        {
-        //            Success = true,
-        //            Data = cartDto
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new ApiErrorResponse
-        //        {
-        //            Message = "An error occurred while retrieving the cart",
-        //            ErrorMessages = new string[] { ex.Message }
-        //        });
-        //    }
-        //}
-
-   
-
-        // POST: api/cart/items
-        [HttpPost("items")]
-        public async Task<IActionResult> AddItemToCart([FromBody] AddItemToCartDto addItemDto, [FromQuery] int customerId)
-        {
-            try
-            {
-                if (addItemDto == null || addItemDto.Quantity <= 0 || addItemDto.ProductId <= 0 || addItemDto.VariantId <= 0)
-                {
-                    return BadRequest(new ApiResponse<object>
-                    {
-                        Success = false,
-                        Message = "Invalid item data",
-                        Data = null
-                    });
+                    return Ok(cachedResult);
                 }
 
-                var cartItemDto = await _cartRepository.AddItemToCartAsync(customerId, addItemDto);
-                var cart = await _cartRepository.GetCartAsync(customerId, null);
-                var summary = new CartSummaryDto
+                var cart = await _cartRepository.GetCartByCustomerIdAsync(customerId);
+
+                var response = new ApiResponse<CartDto>
                 {
-                    Subtotal = cart.Items.Sum(i => i.Total),
-                    TotalItems = cart.Items.Sum(i => i.Quantity),
-                    SellerCount = cart.Items
-                        .Select(i => i.ProductId)
-                        .Distinct()
-                        .Count()
+                    Message = "Cart retrieved successfully",
+                    Data = cart,
+                    Success = true
                 };
-                return Ok(new ApiResponse<object>
-                {
-                    Success = true,
-                    Message = "Item added to cart",
-                    Data = new
-                    {
-                        cart_item_id = cartItemDto.CartItemId,
-                        product_id = cartItemDto.ProductId,
-                        variant_id = cartItemDto.VariantId,
-                        quantity = cartItemDto.Quantity,
-                        price = cartItemDto.Price,
-                        cart_summary = summary
-                    }
-                });
+
+                // Cache the result
+                var cacheEntryOptions = new MemoryCacheEntryOptions()
+                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+
+                _cache.Set(cacheKey, response, cacheEntryOptions);
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while retrieving cart");
                 return StatusCode(500, new ApiErrorResponse
                 {
-                    Message = "An error occurred while adding item to cart",
+                    Message = "An error occurred while retrieving cart",
                     ErrorMessages = new string[] { ex.Message }
                 });
-
             }
         }
 
-        //// PUT: api/cart/items/{id}
-        //[HttpPut("items/{id}")]
-        //public async Task<IActionResult> UpdateCartItem(int id, [FromBody] UpdateCartItemDto updateItemDto)
-        //{
-        //    try
-        //    {
-        //        if (id != updateItemDto.CartItemId)
-        //        {
-        //            return BadRequest(new ApiErrorResponse
-        //            {
-        //                Message = "Cart item ID mismatch",
-        //                ErrorMessages = new string[] { "The ID in the URL does not match the ID in the request body" }
-        //            });
-        //        }
-
-        //        var customerId = GetCurrentCustomerId();
-        //        var cartItemDto = await _cartRepository.UpdateCartItemAsync(updateItemDto);
-
-        //        if (cartItemDto == null)
-        //        {
-        //            return NotFound(new ApiResponse<object>
-        //            {
-        //                Message = "Cart item not found",
-        //                Success = false,
-        //                Data = null
-        //            });
-        //        }
-
-        //        var cart = await _cartRepository.GetCartAsync(customerId, null);
-        //        var summary = new CartSummaryDto
-        //        {
-        //            Subtotal = cart.Items.Sum(i => i.Total),
-        //            TotalItems = cart.Items.Sum(i => i.Quantity),
-        //            SellerCount = cart.Items
-        //                .Select(i => i.ProductId) // Would need to get seller from product
-        //                .Distinct()
-        //                .Count()
-        //        };
-
-        //        return Ok(new ApiResponse<object>
-        //        {
-        //            Success = true,
-        //            Message = "Cart item updated",
-        //            Data = new
-        //            {
-        //                cart_item_id = cartItemDto.CartItemId,
-        //                quantity = cartItemDto.Quantity,
-        //                total = cartItemDto.Total,
-        //                cart_summary = summary
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, new ApiErrorResponse
-        //        {
-        //            Message = "An error occurred while updating cart item",
-        //            ErrorMessages = new string[] { ex.Message }
-        //        });
-        //    }
-        //}
-
-        [HttpPut("items")]
-        public async Task<IActionResult> UpdateCartItem([FromQuery] int CartItemId,  [FromQuery] int customerId,   [FromBody] UpdateCartItemDto updateItemDto)
+        // GET: api/carts/summary
+        [HttpGet("summary")]
+        [EnableRateLimiting("standard")]
+        [ResponseCache(Duration = 30)]
+        public async Task<IActionResult> GetCartSummary()
         {
             try
             {
-                if (CartItemId != updateItemDto.CartItemId)
+                int customerId = GetCurrentCustomerId();
+                var cacheKey = $"cart_summary_{customerId}";
+
+                // Try to get from cache first
+                if (_cache.TryGetValue(cacheKey, out ApiResponse<CartSummaryDto> cachedResult))
                 {
-                    return BadRequest(new ApiErrorResponse
-                    {
-                        Message = "Cart item ID mismatch",
-                        ErrorMessages = new string[] { "The ID in the query does not match the ID in the request body" }
-                    });
+                    return Ok(cachedResult);
                 }
 
-                var cartItemDto = await _cartRepository.UpdateCartItemAsync(updateItemDto);
+                var cartSummary = await _cartRepository.GetCartSummaryByCustomerIdAsync(customerId);
 
-                if (cartItemDto == null)
+                var response = new ApiResponse<CartSummaryDto>
+                {
+                    Message = "Cart summary retrieved successfully",
+                    Data = cartSummary,
+                    Success = true
+                };
+
+                // Cache the result
+                var cacheEntryOptions = new MemoryCacheEntryOptions()
+                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+
+                _cache.Set(cacheKey, response, cacheEntryOptions);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving cart summary");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving cart summary",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        // GET: api/carts/items/{id}
+        [HttpGet("items/{id}")]
+        [EnableRateLimiting("standard")]
+        public async Task<IActionResult> GetCartItem(int id)
+        {
+            try
+            {
+                int customerId = GetCurrentCustomerId();
+
+                // Check if the item belongs to the customer
+                if (!await _cartRepository.CartItemExistsAndBelongsToCustomerAsync(customerId, id))
                 {
                     return NotFound(new ApiResponse<object>
                     {
@@ -252,24 +152,152 @@ namespace Jumia_Clone.Controllers
                     });
                 }
 
-                var cart = await _cartRepository.GetCartAsync(customerId, null);
-                var summary = CalculateCartSummary(cart);
+                var cartItem = await _cartRepository.GetCartItemByIdAsync(id);
 
-                return Ok(new ApiResponse<object>
+                return Ok(new ApiResponse<CartItemDto>
                 {
-                    Success = true,
-                    Message = "Cart item updated",
-                    Data = new
-                    {
-                        cart_item_id = cartItemDto.CartItemId,
-                        quantity = cartItemDto.Quantity,
-                        total = cartItemDto.Total,
-                        cart_summary = summary
-                    }
+                    Message = "Cart item retrieved successfully",
+                    Data = cartItem,
+                    Success = true
                 });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while retrieving cart item");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving cart item",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        // POST: api/carts/items
+        [HttpPost("items")]
+        [EnableRateLimiting("strict")]
+        public async Task<IActionResult> AddCartItem([FromBody] AddCartItemDto cartItemDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "Invalid cart item data",
+                    ErrorMessages = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToArray()
+                });
+            }
+
+            try
+            {
+                int customerId = GetCurrentCustomerId();
+
+                var cartItem = await _cartRepository.AddCartItemAsync(customerId, cartItemDto);
+
+                // Invalidate cache
+                InvalidateCartCache(customerId);
+
+                return CreatedAtAction(
+                    nameof(GetCartItem),
+                    new { id = cartItem.CartItemId },
+                    new ApiResponse<CartItemDto>
+                    {
+                        Message = "Item added to cart successfully",
+                        Data = cartItem,
+                        Success = true
+                    }
+                );
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    Data = null
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding item to cart");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while adding item to cart",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        // PUT: api/carts/items/{id}
+        [HttpPut("items/{id}")]
+        [EnableRateLimiting("strict")]
+        public async Task<IActionResult> UpdateCartItem(int id, [FromBody] UpdateCartItemDto updateCartItemDto)
+        {
+            if (id != updateCartItemDto.CartItemId)
+            {
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "ID mismatch",
+                    ErrorMessages = new string[] { "The cart item ID in the URL does not match the ID in the body" }
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "Invalid cart item data",
+                    ErrorMessages = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToArray()
+                });
+            }
+
+            try
+            {
+                int customerId = GetCurrentCustomerId();
+
+                // Check if the item belongs to the customer
+                if (!await _cartRepository.CartItemExistsAndBelongsToCustomerAsync(customerId, id))
+                {
+                    return NotFound(new ApiResponse<object>
+                    {
+                        Message = "Cart item not found",
+                        Success = false,
+                        Data = null
+                    });
+                }
+
+                var cartItem = await _cartRepository.UpdateCartItemQuantityAsync(customerId, updateCartItemDto);
+
+                // Invalidate cache
+                InvalidateCartCache(customerId);
+
+                return Ok(new ApiResponse<CartItemDto>
+                {
+                    Message = "Cart item updated successfully",
+                    Data = cartItem,
+                    Success = true
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Message = "Cart item not found",
+                    Success = false,
+                    Data = null
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating cart item");
                 return StatusCode(500, new ApiErrorResponse
                 {
                     Message = "An error occurred while updating cart item",
@@ -278,16 +306,17 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-        // DELETE: api/cart/items/{id}
-      
+        // DELETE: api/carts/items/{id}
         [HttpDelete("items/{id}")]
-        public async Task<IActionResult> RemoveCartItem(int id, [FromQuery] int customerId)
+        [EnableRateLimiting("strict")]
+        public async Task<IActionResult> RemoveCartItem(int id)
         {
             try
             {
-                var success = await _cartRepository.RemoveItemFromCartAsync(id);
+                int customerId = GetCurrentCustomerId();
 
-                if (!success)
+                // Check if the item belongs to the customer
+                if (!await _cartRepository.CartItemExistsAndBelongsToCustomerAsync(customerId, id))
                 {
                     return NotFound(new ApiResponse<object>
                     {
@@ -297,18 +326,25 @@ namespace Jumia_Clone.Controllers
                     });
                 }
 
-                var cart = await _cartRepository.GetCartAsync(customerId, null);
-                var summary = CalculateCartSummary(cart);
+                var result = await _cartRepository.RemoveCartItemAsync(customerId, id);
+
+                // Invalidate cache
+                InvalidateCartCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
+                    Message = "Cart item removed successfully",
                     Success = true,
-                    Message = "Item removed from cart",
-                    Data = new { cart_summary = summary }
+                    Data = null
                 });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while removing cart item");
                 return StatusCode(500, new ApiErrorResponse
                 {
                     Message = "An error occurred while removing cart item",
@@ -317,75 +353,46 @@ namespace Jumia_Clone.Controllers
             }
         }
 
-
-    
-        // DELETE: api/cart/clearcart
-        [HttpDelete("clearcart")]
-        public async Task<IActionResult> ClearCart([FromQuery] int customerId)
+        // DELETE: api/carts/clear
+        [HttpDelete("clear")]
+        [EnableRateLimiting("strict")]
+        public async Task<IActionResult> ClearCart()
         {
             try
             {
-                var success = await _cartRepository.ClearCartAsync(customerId);
+                int customerId = GetCurrentCustomerId();
 
-                if (!success)
-                {
-                    return NotFound(new ApiResponse<object>
-                    {
-                        Message = "Cart not found",
-                        Success = false,
-                        Data = null
-                    });
-                }
+                var result = await _cartRepository.ClearCartAsync(customerId);
+
+                // Invalidate cache
+                InvalidateCartCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
+                    Message = "Cart cleared successfully",
                     Success = true,
-                    Message = "Cart cleared successfully"
+                    Data = null
                 });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while clearing cart");
                 return StatusCode(500, new ApiErrorResponse
                 {
-                    Message = "An error occurred while clearing the cart",
+                    Message = "An error occurred while clearing cart",
                     ErrorMessages = new string[] { ex.Message }
                 });
             }
         }
 
-
-
-        #region HelperMethod
-        private CartSummaryDto CalculateCartSummary(CartDto cart)
+        // Helper method to invalidate cart cache
+        private void InvalidateCartCache(int customerId)
         {
-            if (cart == null) return new CartSummaryDto();
+            var cartCacheKey = $"cart_{customerId}";
+            var summaryCartCacheKey = $"cart_summary_{customerId}";
 
-            return new CartSummaryDto
-            {
-                Subtotal = cart.Items.Sum(i => i.Total),
-                TotalItems = cart.Items.Sum(i => i.Quantity),
-                SellerCount = cart.Items
-                    .GroupBy(i => i.ProductId) // Group by product as proxy for seller
-                    .Count()
-            };
+            _cache.Remove(cartCacheKey);
+            _cache.Remove(summaryCartCacheKey);
         }
-
-        //private int GetCurrentCustomerId()
-        //{
-        //    var customerIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        //    if (string.IsNullOrEmpty(customerIdStr))
-        //    {
-        //        throw new UnauthorizedAccessException("User ID is missing or the user is not authenticated.");
-        //    }
-        //    if (!int.TryParse(customerIdStr, out int customerId))
-        //    {
-        //        throw new UnauthorizedAccessException("User ID is not a valid integer.");
-        //    }
-
-        //    return customerId;
-        //}
-        #endregion
-
     }
 }

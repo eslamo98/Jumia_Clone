@@ -2,14 +2,11 @@
 using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Jumia_Clone.Repositories.Implementation
 {
@@ -270,7 +267,7 @@ namespace Jumia_Clone.Repositories.Implementation
             }
         }
 
-        public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto changePasswordDto)
+        public async Task<bool> ChangePasswordAsync(int userId, AuthChangePasswordDto changePasswordDto)
         {
             var user = await _userRepository.GetUserByIdAsync(userId);
             if (user == null)

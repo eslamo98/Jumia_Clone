@@ -388,35 +388,7 @@ namespace Jumia_Clone.Repositories.Implementation
             return userRecommendations ?? new List<UserRecommendationdto>();
         }
 
-        public async Task<IEnumerable<Userdto>> GetAllUsers(PaginationDto pagination)
-        {
-            var query = _context.Users.AsQueryable();
 
-            if (pagination != null)
-            {
-                query = query
-                    .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-                    .Take(pagination.PageSize);
-            }
-
-            var users = await query
-                .Select(u => new Userdto
-                {
-                    UserId = u.UserId,
-                    Email = u.Email,
-                    PasswordHash = u.PasswordHash,
-                    FirstName = u.FirstName,
-                    LastName = u.LastName,
-                    PhoneNumber = u.PhoneNumber,
-                    CreatedAt = u.CreatedAt,
-                    UpdatedAt = u.UpdatedAt,
-                    UserType = u.UserType,
-                    IsActive = u.IsActive
-                })
-                .ToListAsync();
-
-            return users ?? new List<Userdto>();
-        }
 
         public async Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(PaginationDto pagination)
         {
