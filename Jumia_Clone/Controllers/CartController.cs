@@ -6,6 +6,7 @@ using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using System.Security.Claims;
+using Jumia_Clone.CustomException;
 
 namespace Jumia_Clone.Controllers
 {
@@ -218,6 +219,15 @@ namespace Jumia_Clone.Controllers
                     Data = null
                 });
             }
+            catch (InsufficientStockException ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating cart item");
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating cart item",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while adding item to cart");
@@ -294,6 +304,15 @@ namespace Jumia_Clone.Controllers
             catch (UnauthorizedAccessException)
             {
                 return Forbid();
+            }
+            catch (InsufficientStockException ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating cart item");
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating cart item",
+                    ErrorMessages = new string[] { ex.Message }
+                });
             }
             catch (Exception ex)
             {

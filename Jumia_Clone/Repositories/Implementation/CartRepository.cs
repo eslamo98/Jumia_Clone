@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Jumia_Clone.CustomException;
 using Jumia_Clone.Data;
 using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Models.DTOs.CartItemDtos;
@@ -102,7 +103,9 @@ namespace Jumia_Clone.Repositories
             try
             {
                 var customerId = getCutomerId(userId);
-                if (customerId == 0) throw new KeyNotFoundException("customer was not found");
+                if (customerId == 0)
+                {
+                    throw new KeyNotFoundException("customer was not found"); }
                 var cart = await GetOrCreateCartAsync(customerId);
 
                 // Load cart items if they haven't been loaded
@@ -170,7 +173,10 @@ namespace Jumia_Clone.Repositories
             try
             {
                 var customerId = getCutomerId(userId);
-                if (customerId == 0) throw new KeyNotFoundException("not found");
+                if (customerId == 0)
+                {
+                    throw new KeyNotFoundException("not found");
+                }
                 // Get or create cart
                 var cart = await GetOrCreateCartAsync(customerId);
 
@@ -190,7 +196,13 @@ namespace Jumia_Clone.Repositories
                 {
                     throw new KeyNotFoundException($"Product with ID {cartItemDto.ProductId} not found or is not available");
                 }
-
+                if(product.StockQuantity < cartItemDto.Quantity)
+                {
+                    throw new InsufficientStockException(
+                        cartItemDto.Quantity,
+                        product.StockQuantity
+                    );
+                }
                 // Check variant if specified
                 ProductVariant variant = null;
                 if (cartItemDto.VariantId.HasValue)
@@ -275,11 +287,16 @@ namespace Jumia_Clone.Repositories
             }
         }
 
-        public async Task<CartItemDto> UpdateCartItemQuantityAsync(int customerId, UpdateCartItemDto updateCartItemDto)
+        public async Task<CartItemDto> UpdateCartItemQuantityAsync(int userId, UpdateCartItemDto updateCartItemDto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var customerId = getCutomerId(userId);
+                if (customerId == 0)
+                {
+                    
+                    throw new KeyNotFoundException("Customer was not found"); }
                 // Get the cart item
                 var cartItem = await _context.CartItems
                     .Include(ci => ci.Cart)
@@ -295,6 +312,13 @@ namespace Jumia_Clone.Repositories
                     throw new UnauthorizedAccessException("Cart item does not belong to this customer");
 
                 // Update quantity
+                if (updateCartItemDto.Quantity > cartItem.Product.StockQuantity)
+                {
+                    throw new InsufficientStockException(
+                        updateCartItemDto.Quantity,
+                        cartItem.Product.StockQuantity
+                    );
+                }
                 cartItem.Quantity = updateCartItemDto.Quantity;
 
                 // Update cart timestamp
@@ -321,16 +345,18 @@ namespace Jumia_Clone.Repositories
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error occurred while updating cart item quantity for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error occurred while updating cart item quantity for customer");
                 throw;
             }
         }
 
-        public async Task<bool> RemoveCartItemAsync(int customerId, int cartItemId)
+        public async Task<bool> RemoveCartItemAsync(int userId, int cartItemId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var customerId = getCutomerId(userId);
+                if (customerId == 0) throw new KeyNotFoundException("cartItem was not found");
                 // Get the cart item with cart
                 var cartItem = await _context.CartItems
                     .Include(ci => ci.Cart)
@@ -358,16 +384,18 @@ namespace Jumia_Clone.Repositories
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error occurred while removing cart item for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error occurred while removing cart item for customer");
                 throw;
             }
         }
 
-        public async Task<bool> ClearCartAsync(int customerId)
+        public async Task<bool> ClearCartAsync(int userId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+            var customerId = getCutomerId(userId);
+            if (customerId == 0) throw new KeyNotFoundException("cartItem was not found");
                 // Get the cart
                 var cart = await _context.Carts
                     .Include(c => c.CartItems)
@@ -391,7 +419,7 @@ namespace Jumia_Clone.Repositories
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error occurred while clearing cart for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error occurred while clearing cart for customer");
                 throw;
             }
         }
@@ -418,17 +446,20 @@ namespace Jumia_Clone.Repositories
             }
         }
 
-        public async Task<bool> CartItemExistsAndBelongsToCustomerAsync(int customerId, int cartItemId)
+        public async Task<bool> CartItemExistsAndBelongsToCustomerAsync(int userId, int cartItemId)
         {
             try
             {
+
+                var customerId = getCutomerId(userId);
+                if (customerId == 0) throw new KeyNotFoundException("Customer was not found");
                 return await _context.CartItems
                     .Include(ci => ci.Cart)
                     .AnyAsync(ci => ci.CartItemId == cartItemId && ci.Cart.CustomerId == customerId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking if cart item exists for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error checking if cart item exists for customer");
                 throw;
             }
         }

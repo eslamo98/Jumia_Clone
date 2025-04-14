@@ -11,6 +11,9 @@ using System.Threading.RateLimiting;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using Microsoft.OpenApi.Models;
 using Jumia_Clone.MappingProfiles;
+using Jumia_Clone.CustomException;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace Jumia_Clone.Configuration
 {
@@ -43,6 +46,9 @@ namespace Jumia_Clone.Configuration
             // Add in-memory cache
             services.AddMemoryCache();
 
+            //Add global exception handler
+            services.AddExceptionHandler<GlobalExceptionHandler>();
+            services.AddProblemDetails();
             // Add Rate Limiting
             services.AddRateLimiter(options =>
             {
@@ -122,6 +128,32 @@ namespace Jumia_Clone.Configuration
 
         public static WebApplication ConfigureMiddleware(this WebApplication app)
         {
+            // Configure detailed exception handling
+            app.UseExceptionHandler(appError =>
+            {
+                appError.Run(async context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    context.Response.ContentType = "application/json";
+
+                    var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+                    if (exceptionHandlerPathFeature?.Error != null)
+                    {
+                        var exception = exceptionHandlerPathFeature.Error;
+
+                        // You can log the exception here if needed
+                        // _logger.LogError(exception, "An unhandled exception occurred.");
+
+                        var errorResponse = new ErrorResponse(
+                            "An unexpected error occurred",
+                            "UNEXPECTED_ERROR",
+                            new List<string> { exception.Message }
+                        );
+
+                        await context.Response.WriteAsJsonAsync(errorResponse);
+                    }
+                });
+            });
             // Always enable Swagger for all environments
             app.UseSwagger(c =>
             {
