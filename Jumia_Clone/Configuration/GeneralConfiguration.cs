@@ -10,6 +10,7 @@ using AutoMapper;
 using System.Threading.RateLimiting;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using Microsoft.OpenApi.Models;
+using Jumia_Clone.MappingProfiles;
 
 namespace Jumia_Clone.Configuration
 {
@@ -162,6 +163,12 @@ namespace Jumia_Clone.Configuration
 
             // Images Service
             services.AddScoped<IImageService, ImageService>();
+
+            services.AddAutoMapper(cfg =>
+            {
+                cfg.AddProfile<CouponMappingProfile>();
+                cfg.AddProfile<WishlistMappingProfile>();
+            });
         }
 
         private static void RegisterRepositories(IServiceCollection services)
@@ -173,7 +180,7 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<IAuthRepository, AuthRepository>();
 
             // Subcategory repository
-            services.AddScoped<ISubcategoryService, SubcategoryRepository>();
+            services.AddScoped<ISubcategoryRepository, SubcategoriesRepository>();
             services.AddScoped<ICartRepository, CartRepository>();
 
             // Order Repository
@@ -188,6 +195,9 @@ namespace Jumia_Clone.Configuration
             // Product repository
             services.AddScoped<IProductRepository, ProductRepository>();
             services.AddScoped<IGetAllRepository, GetAllRepository>();
+            services.AddScoped<ICouponRepository, CouponRepository>();
+            services.AddScoped<IWishlistRepository, WishlistRepository>();
+
         }
 
         private static void ConfigureDatabase(IServiceCollection services, IConfiguration configuration)

@@ -3,6 +3,7 @@ using Jumia_Clone.Data;
 using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Models.DTOs.CartItemDtos;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.WishlistItemDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ namespace Jumia_Clone.Repositories
             try
             {
                 var customer = await _context.Customers.FirstOrDefaultAsync(c => c.UserId == userId);
-                if(customer == null)
+                if (customer == null)
                     throw new KeyNotFoundException($"Customer with user ID {userId} not found or is not available");
 
                 // Get or create the cart for this customer
@@ -96,10 +97,12 @@ namespace Jumia_Clone.Repositories
             }
         }
 
-        public async Task<CartSummaryDto> GetCartSummaryByCustomerIdAsync(int customerId)
+        public async Task<CartSummaryDto> GetCartSummaryByCustomerIdAsync(int userId)
         {
             try
             {
+                var customerId = getCutomerId(userId);
+                if (customerId == 0) throw new KeyNotFoundException("customer was not found");
                 var cart = await GetOrCreateCartAsync(customerId);
 
                 // Load cart items if they haven't been loaded
@@ -126,7 +129,7 @@ namespace Jumia_Clone.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while fetching cart summary for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error occurred while fetching cart summary for customer");
                 throw;
             }
         }
@@ -161,11 +164,13 @@ namespace Jumia_Clone.Repositories
             }
         }
 
-        public async Task<CartItemDto> AddCartItemAsync(int customerId, AddCartItemDto cartItemDto)
+        public async Task<CartItemDto> AddCartItemAsync(int userId, AddCartItemDto cartItemDto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var customerId = getCutomerId(userId);
+                if (customerId == 0) throw new KeyNotFoundException("not found");
                 // Get or create cart
                 var cart = await GetOrCreateCartAsync(customerId);
 
@@ -265,7 +270,7 @@ namespace Jumia_Clone.Repositories
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error occurred while adding item to cart for customer {CustomerId}", customerId);
+                _logger.LogError(ex, "Error occurred while adding item to cart for customer");
                 throw;
             }
         }
@@ -471,6 +476,146 @@ namespace Jumia_Clone.Repositories
             }
 
             return cart;
+        }
+
+
+        public async Task<WishlistItemDto> SaveCartItemForLaterAsync(int customerId, int cartItemId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get the cart item with product details
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Cart)
+                    .Include(ci => ci.Product)
+                    .FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
+
+                if (cartItem == null)
+                    throw new KeyNotFoundException($"Cart item with ID {cartItemId} not found");
+
+                // Verify the cart belongs to this customer
+                if (cartItem.Cart.CustomerId != customerId)
+                    throw new UnauthorizedAccessException("Cart item does not belong to this customer");
+
+                // Get or create wishlist
+                var wishlist = await _context.Wishlists
+                    .FirstOrDefaultAsync(w => w.CustomerId == customerId);
+
+                if (wishlist == null)
+                {
+                    wishlist = new Wishlist
+                    {
+                        CustomerId = customerId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Wishlists.Add(wishlist);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Check if product already exists in wishlist
+                var existingWishlistItem = await _context.WishlistItems
+                    .FirstOrDefaultAsync(wi => wi.WishlistId == wishlist.WishlistId && wi.ProductId == cartItem.ProductId);
+
+                // If the item is already in wishlist, just remove from cart
+                if (existingWishlistItem != null)
+                {
+                    _context.CartItems.Remove(cartItem);
+
+                    // Update cart timestamp
+                    cartItem.Cart.UpdatedAt = DateTime.UtcNow;
+                    _context.Entry(cartItem.Cart).State = EntityState.Modified;
+
+                    await _context.SaveChangesAsync();
+
+                    // Return existing wishlist item
+                    var product = cartItem.Product;
+
+                    // Calculate current price
+                    decimal currentPrice = product.BasePrice;
+                    if (product.DiscountPercentage.HasValue && product.DiscountPercentage > 0)
+                    {
+                        currentPrice = product.BasePrice - (product.BasePrice * product.DiscountPercentage.Value / 100);
+                    }
+
+                    var wishlistItemDto = new WishlistItemDto
+                    {
+                        WishlistItemId = existingWishlistItem.WishlistItemId,
+                        WishlistId = existingWishlistItem.WishlistId,
+                        ProductId = existingWishlistItem.ProductId,
+                        ProductName = product.Name,
+                        ProductDescription = product.Description,
+                        BasePrice = product.BasePrice,
+                        DiscountPercentage = product.DiscountPercentage,
+                        CurrentPrice = currentPrice,
+                        MainImageUrl = product.MainImageUrl,
+                        IsAvailable = product.IsAvailable ?? false,
+                        StockQuantity = product.StockQuantity,
+                        AddedAt = existingWishlistItem.AddedAt
+                    };
+
+                    await transaction.CommitAsync();
+                    return wishlistItemDto;
+                }
+
+                // Create wishlist item
+                var wishlistItem = new WishlistItem
+                {
+                    WishlistId = wishlist.WishlistId,
+                    ProductId = cartItem.ProductId,
+                    AddedAt = DateTime.UtcNow
+                };
+
+                _context.WishlistItems.Add(wishlistItem);
+
+                // Remove from cart
+                _context.CartItems.Remove(cartItem);
+
+                // Update cart timestamp
+                cartItem.Cart.UpdatedAt = DateTime.UtcNow;
+                _context.Entry(cartItem.Cart).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+
+                // Prepare result
+                var prod = cartItem.Product;
+
+                // Calculate current price
+                decimal price = prod.BasePrice;
+                if (prod.DiscountPercentage.HasValue && prod.DiscountPercentage > 0)
+                {
+                    price = prod.BasePrice - (prod.BasePrice * prod.DiscountPercentage.Value / 100);
+                }
+
+                var result = new WishlistItemDto
+                {
+                    WishlistItemId = wishlistItem.WishlistItemId,
+                    WishlistId = wishlistItem.WishlistId,
+                    ProductId = wishlistItem.ProductId,
+                    ProductName = prod.Name,
+                    ProductDescription = prod.Description,
+                    BasePrice = prod.BasePrice,
+                    DiscountPercentage = prod.DiscountPercentage,
+                    CurrentPrice = price,
+                    MainImageUrl = prod.MainImageUrl,
+                    IsAvailable = prod.IsAvailable ?? false,
+                    StockQuantity = prod.StockQuantity,
+                    AddedAt = wishlistItem.AddedAt
+                };
+
+                await transaction.CommitAsync();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error occurred while saving cart item for later for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        private int getCutomerId(int userId)
+        {
+            return _context.Customers.FirstOrDefault(c => c.UserId == userId)?.CustomerId ?? 0;
         }
     }
 }

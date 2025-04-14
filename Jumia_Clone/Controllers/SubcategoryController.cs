@@ -11,12 +11,12 @@ namespace Jumia_Clone.Controllers
     [ApiController]
     public class SubcategoryController : ControllerBase
     {
-        private readonly ISubcategoryService _subcategoryService;
+        private readonly ISubcategoryRepository _subcategoryRepository;
         private readonly IImageService _imageService;
 
-        public SubcategoryController(ISubcategoryService subcategoryService, IImageService imageService)
+        public SubcategoryController(ISubcategoryRepository subcategoryRepository, IImageService imageService)
         {
-            _subcategoryService = subcategoryService;
+            _subcategoryRepository = subcategoryRepository;
             _imageService = imageService;
         }
 
@@ -27,7 +27,7 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                var subcategories = await _subcategoryService.GetSubcategoriesByCategory(categoryId, pagination);
+                var subcategories = await _subcategoryRepository.GetSubcategoriesByCategory(categoryId, pagination);
 
                 // Set full image URLs
                 foreach (var subcategory in subcategories)
@@ -62,7 +62,7 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                var subcategories = await _subcategoryService.GetAllSubcategoriesAsync(pagination, include_inactive);
+                var subcategories = await _subcategoryRepository.GetAllSubcategoriesAsync(pagination, include_inactive);
 
                 foreach (var subcategory in subcategories)
                 {
@@ -93,7 +93,7 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                var subcategory = await _subcategoryService.GetSubcategoryById(subcategoryId);
+                var subcategory = await _subcategoryRepository.GetSubcategoryById(subcategoryId);
 
                 if (subcategory == null)
                 {
@@ -141,7 +141,7 @@ namespace Jumia_Clone.Controllers
 
             try
             {
-                var createdSubcategory = await _subcategoryService.CreateSubcategory(subcategoryDto);
+                var createdSubcategory = await _subcategoryRepository.CreateSubcategory(subcategoryDto);
 
                 if (!string.IsNullOrEmpty(createdSubcategory.ImageUrl))
                 {
@@ -182,7 +182,7 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                var updatedSubcategory = await _subcategoryService.UpdateSubcategory(subcategoryId, subcategoryDto);
+                var updatedSubcategory = await _subcategoryRepository.UpdateSubcategory(subcategoryId, subcategoryDto);
 
                 if (updatedSubcategory == null)
                 {
@@ -218,7 +218,7 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                await _subcategoryService.DeleteSubcategory(id);
+                await _subcategoryRepository.DeleteSubcategory(id);
 
                 return Ok(new ApiResponse<object>(
                     null,
@@ -256,7 +256,7 @@ namespace Jumia_Clone.Controllers
                     ));
                 }
 
-                var result = await _subcategoryService.SearchByNameOrDescription(searchTerm, pagination);
+                var result = await _subcategoryRepository.SearchByNameOrDescription(searchTerm, pagination);
 
                 foreach (var subcategory in result)
                 {

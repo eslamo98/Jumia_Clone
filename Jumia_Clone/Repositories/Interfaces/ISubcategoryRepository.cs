@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jumia_Clone.Repositories.Interfaces
 {
-    public interface ISubcategoryService
+    public interface ISubcategoryRepository
     {
         Task<IEnumerable<Subcategorydto>> GetSubcategoriesByCategory(int categoryId, PaginationDto paginationDto);
 

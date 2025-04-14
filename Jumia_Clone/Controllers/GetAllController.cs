@@ -61,7 +61,7 @@ namespace Jumia_Clone.Controllers
             {
                 var coupons = await _getAllRepository.GetAllCoupons(pagination);
 
-                return Ok(new ApiResponse<IEnumerable<Coupondto>>
+                return Ok(new ApiResponse<IEnumerable<CouponDto>>
                 {
                     Message = "Successfully retrieved all coupons.",
                     Data = coupons,
@@ -330,7 +330,7 @@ namespace Jumia_Clone.Controllers
             {
                 var wishlistItems = await _getAllRepository.GetAllWishlistItems(pagination);
 
-                return Ok(new ApiResponse<IEnumerable<WishlistItemdto>>
+                return Ok(new ApiResponse<IEnumerable<WishlistItemDto>>
                 {
                     Message = "Successfully retrieved all wishlist items.",
                     Data = wishlistItems,
