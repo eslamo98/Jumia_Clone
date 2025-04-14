@@ -47,7 +47,7 @@ namespace Jumia_Clone.Repositories
             if (pagination != null)
             {
                 cartItems = cartItems
-                    .Skip(pagination.PageNumber * pagination.PageSize)
+                   .Skip((pagination.PageNumber - 1) * pagination.PageSize)
                     .Take(pagination.PageSize);
             }
 
@@ -100,7 +100,7 @@ namespace Jumia_Clone.Repositories
                     CartId = cart.CartId,
                     ProductId = addItemDto.ProductId,
                     VariantId = addItemDto.VariantId,
-                    Quantity = addItemDto.Quantity,
+                    Quantity = existingItem.Quantity,
                     PriceAtAddition = addItemDto.PriceAtAddition
                 };
                 _context.CartItems.Add(existingItem);
@@ -118,6 +118,7 @@ namespace Jumia_Clone.Repositories
                 Total = existingItem.Quantity * existingItem.PriceAtAddition
             };
         }
+
 
         public async Task<CartItemDto> UpdateCartItemAsync(UpdateCartItemDto updateItemDto)
         {
@@ -200,6 +201,36 @@ namespace Jumia_Clone.Repositories
             }
         }
 
+        public async Task<CartDto> GetCartAsync(int customerId, PaginationDto pagination)
+        {
+            var cart = await _context.Carts
+                .Include(c => c.CartItems)
+                .ThenInclude(ci => ci.Product)
+                .ThenInclude(p => p.ProductVariants)
+                .FirstOrDefaultAsync(c => c.CustomerId == customerId);
+            if (cart == null) return null;
+            pagination = pagination ?? new PaginationDto();
+            var cartItems = await _context.CartItems
+                .Where(ci => ci.CartId == cart.CartId)
+                .Skip(pagination.PageSize * pagination.PageNumber)
+                .Take(pagination.PageSize)
+                .Select(ci => new CartItemDto
+                {
+                    CartItemId = ci.CartItemId,
+                    ProductId = ci.ProductId,
+                    VariantId = ci.VariantId ?? 0,
+                    Quantity = ci.Quantity,
+                    Price = ci.PriceAtAddition,
+                    Total = ci.Quantity * ci.PriceAtAddition
+                })
+                .ToListAsync();
+            return new CartDto
+            {
+                CartId = cart.CartId,
+                CustomerId = cart.CustomerId,
+                Items = cartItems
+            };
+        }
         public async Task<CartItemDto> GetCartItemAsync(int cartItemId)
         {
             var cartItem = await _context.CartItems
@@ -228,6 +259,54 @@ namespace Jumia_Clone.Repositories
             _context.Carts.Add(cart);
             await _context.SaveChangesAsync();
             return cart;
+        }
+        public async Task<CartDto> GetCartProducts(List<CartItem> cartItems, PaginationDto pagination)
+        {
+            var productIds = cartItems.Select(ci => ci.ProductId).ToList();
+            var variantIds = cartItems.Select(ci => ci.VariantId).ToList();
+
+       
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.ProductId))
+                .Where(p => p.ProductVariants.Any(v => variantIds.Contains(v.VariantId)))
+                .Include(p => p.ProductVariants)
+                .ToListAsync();
+
+            var pagedItems = cartItems
+                .Skip((pagination.PageNumber - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .ToList();
+            var cartDto = new CartDto
+            {
+                Items = pagedItems.Select(ci =>
+                {
+                    // Find the corresponding product and variant
+                    var product = products.FirstOrDefault(p => p.ProductId == ci.ProductId);
+                    var variant = product?.ProductVariants.FirstOrDefault(v => v.VariantId == ci.VariantId);
+
+                    return new CartItemDto
+                    {
+                        CartItemId = ci.CartItemId,
+                        ProductId = ci.ProductId,
+                        VariantId = ci.VariantId ?? 0,
+                        Quantity = ci.Quantity,
+                        Price = ci.PriceAtAddition,
+                        Total = ci.Quantity * ci.PriceAtAddition,
+                        
+                    };
+                }).ToList()
+            };
+
+            return cartDto;
+        }
+
+
+
+        
+
+        public Task<bool> AddToCart(CartItem cartItem)
+        {
+            throw new NotImplementedException();
         }
     }
 }
