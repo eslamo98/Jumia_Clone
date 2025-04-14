@@ -2,8 +2,9 @@
 {
     public class CartSummaryDto
     {
-        public decimal Subtotal { get; set; }
-        public int TotalItems { get; set; }
-        public int SellerCount { get; set; }
+        public int CartId { get; set; }
+        public int ItemsCount { get; set; }
+        public decimal SubTotal { get; set; }
+        public DateTime? LastUpdated { get; set; }
     }
 }

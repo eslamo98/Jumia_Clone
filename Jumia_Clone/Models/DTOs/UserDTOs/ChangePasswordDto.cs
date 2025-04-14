@@ -1,18 +1,18 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Jumia_Clone.Models.DTOs.AuthenticationDTOs
+namespace Jumia_Clone.Models.DTOs.UserDTOs
 {
-    public class AuthChangePasswordDto
+    public class ChangePasswordDto
     {
         [Required]
         public string CurrentPassword { get; set; }
 
         [Required]
-        [MinLength(8)]
+        [StringLength(100, MinimumLength = 6)]
         public string NewPassword { get; set; }
 
         [Required]
         [Compare("NewPassword")]
-        public string ConfirmPassword { get; set; }
+        public string ConfirmNewPassword { get; set; }
     }
 }

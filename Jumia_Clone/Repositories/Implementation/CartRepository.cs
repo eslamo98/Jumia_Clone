@@ -1,4 +1,5 @@
-﻿using Jumia_Clone.Data;
+﻿using AutoMapper;
+using Jumia_Clone.Data;
 using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Models.DTOs.CartItemDtos;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
@@ -15,298 +16,461 @@ namespace Jumia_Clone.Repositories
     public class CartRepository : ICartRepository
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
+        private readonly ILogger<CartRepository> _logger;
 
-        public CartRepository(ApplicationDbContext context)
+        public CartRepository(
+            ApplicationDbContext context,
+            IMapper mapper,
+            ILogger<CartRepository> logger)
         {
             _context = context;
+            _mapper = mapper;
+            _logger = logger;
         }
 
-        public async Task<CartDto> GetOrCreateCartAsync(int customerId, PaginationDto pagination)
+        public async Task<CartDto> GetCartByCustomerIdAsync(int userId, bool includeItems = true)
         {
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Product)
-                        .ThenInclude(p => p.Seller)
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Variant)
-                .FirstOrDefaultAsync(c => c.CustomerId == customerId);
-
-            if (cart == null)
+            try
             {
-                cart = new Cart
-                {
-                    CustomerId = customerId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.Carts.Add(cart);
-                await _context.SaveChangesAsync();
-            }
+                var customer = await _context.Customers.FirstOrDefaultAsync(c => c.UserId == userId);
+                if(customer == null)
+                    throw new KeyNotFoundException($"Customer with user ID {userId} not found or is not available");
 
-            var cartItems = cart.CartItems.AsQueryable();
+                // Get or create the cart for this customer
+                var cart = await GetOrCreateCartAsync(customer.CustomerId);
 
-            if (pagination != null)
-            {
-                cartItems = cartItems
-                   .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-                    .Take(pagination.PageSize);
-            }
+                // If we need to include items
+                if (includeItems)
+                {
+                    // Load cart items with product information
+                    await _context.Entry(cart)
+                        .Collection(c => c.CartItems)
+                        .LoadAsync();
 
-            var cartDto = new CartDto
-            {
-                CartId = cart.CartId,
-                Items = await cartItems.Select(ci => new CartItemDto
-                {
-                    CartItemId = ci.CartItemId,
-                    ProductId = ci.ProductId,
-                    VariantId = ci.VariantId ?? 0,
-                    Quantity = ci.Quantity,
-                    Price = ci.PriceAtAddition,
-                    Total = ci.Quantity * ci.PriceAtAddition
-                }).ToListAsync(),
-                Summary = new CartSummaryDto
-                {
-                    Subtotal = cart.CartItems.Sum(ci => ci.Quantity * ci.PriceAtAddition),
-                    TotalItems = cart.CartItems.Sum(ci => ci.Quantity),
-                    SellerCount = cart.CartItems
-                        .Select(ci => ci.Product.SellerId)
-                        .Distinct()
-                        .Count()
+                    // Load product information for each cart item
+                    foreach (var item in cart.CartItems)
+                    {
+                        await _context.Entry(item)
+                            .Reference(i => i.Product)
+                            .LoadAsync();
+
+                        // Load variant information if present
+                        if (item.VariantId.HasValue)
+                        {
+                            await _context.Entry(item)
+                                .Reference(i => i.Variant)
+                                .LoadAsync();
+                        }
+                    }
                 }
-            };
 
-            return cartDto;
+                // Map to DTO
+                var cartDto = _mapper.Map<CartDto>(cart);
+
+                // Add product name and image
+                if (includeItems && cart.CartItems != null)
+                {
+                    foreach (var item in cart.CartItems)
+                    {
+                        var cartItemDto = cartDto.CartItems.FirstOrDefault(ci => ci.CartItemId == item.CartItemId);
+                        if (cartItemDto != null)
+                        {
+                            cartItemDto.ProductName = item.Product.Name;
+                            cartItemDto.ProductImage = item.Product.MainImageUrl;
+
+                            if (item.VariantId.HasValue && item.Variant != null)
+                            {
+                                cartItemDto.VariantName = item.Variant.VariantName;
+                            }
+                        }
+                    }
+                }
+
+                return cartDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching cart for customer {CustomerId}", userId);
+                throw;
+            }
         }
 
-        public async Task<CartItemDto> AddItemToCartAsync(int customerId, AddItemToCartDto addItemDto)
+        public async Task<CartSummaryDto> GetCartSummaryByCustomerIdAsync(int customerId)
         {
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                .FirstOrDefaultAsync(c => c.CustomerId == customerId)
-                ?? await CreateCartForCustomerAsync(customerId);
-
-            var existingItem = cart.CartItems.FirstOrDefault(ci =>
-                ci.ProductId == addItemDto.ProductId &&
-                ci.VariantId == addItemDto.VariantId);
-
-            if (existingItem != null)
+            try
             {
-                existingItem.Quantity += addItemDto.Quantity;
-                existingItem.PriceAtAddition = addItemDto.PriceAtAddition;
-            }
-            else
-            {
-                existingItem = new CartItem
+                var cart = await GetOrCreateCartAsync(customerId);
+
+                // Load cart items if they haven't been loaded
+                if (!_context.Entry(cart).Collection(c => c.CartItems).IsLoaded)
+                {
+                    await _context.Entry(cart)
+                        .Collection(c => c.CartItems)
+                        .LoadAsync();
+                }
+
+                decimal subtotal = 0;
+                if (cart.CartItems != null)
+                {
+                    subtotal = cart.CartItems.Sum(item => item.PriceAtAddition * item.Quantity);
+                }
+
+                return new CartSummaryDto
                 {
                     CartId = cart.CartId,
-                    ProductId = addItemDto.ProductId,
-                    VariantId = addItemDto.VariantId,
-                    Quantity = existingItem.Quantity,
-                    PriceAtAddition = addItemDto.PriceAtAddition
+                    ItemsCount = cart.CartItems?.Count ?? 0,
+                    SubTotal = subtotal,
+                    LastUpdated = cart.UpdatedAt
                 };
-                _context.CartItems.Add(existingItem);
             }
-
-            await _context.SaveChangesAsync();
-
-            return new CartItemDto
+            catch (Exception ex)
             {
-                CartItemId = existingItem.CartItemId,
-                ProductId = existingItem.ProductId,
-                VariantId = existingItem.VariantId ?? 0,
-                Quantity = existingItem.Quantity,
-                Price = existingItem.PriceAtAddition,
-                Total = existingItem.Quantity * existingItem.PriceAtAddition
-            };
+                _logger.LogError(ex, "Error occurred while fetching cart summary for customer {CustomerId}", customerId);
+                throw;
+            }
         }
 
-
-        public async Task<CartItemDto> UpdateCartItemAsync(UpdateCartItemDto updateItemDto)
+        public async Task<CartItemDto> GetCartItemByIdAsync(int cartItemId)
         {
-            var cartItem = await _context.CartItems.FindAsync(updateItemDto.CartItemId);
-            if (cartItem == null) return null;
-
-            cartItem.Quantity = updateItemDto.Quantity;
-            _context.CartItems.Update(cartItem);
-            await _context.SaveChangesAsync();
-
-            return new CartItemDto
+            try
             {
-                CartItemId = cartItem.CartItemId,
-                ProductId = cartItem.ProductId,
-                VariantId = cartItem.VariantId ?? 0,
-                Quantity = cartItem.Quantity,
-                Price = cartItem.PriceAtAddition,
-                Total = cartItem.Quantity * cartItem.PriceAtAddition
-            };
-        }
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Product)
+                    .Include(ci => ci.Variant)
+                    .FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
 
-        public async Task<bool> RemoveItemFromCartAsync(int cartItemId)
-        {
-            using (var transaction = await _context.Database.BeginTransactionAsync())
-            {
-                try
+                if (cartItem == null)
+                    return null;
+
+                var cartItemDto = _mapper.Map<CartItemDto>(cartItem);
+                cartItemDto.ProductName = cartItem.Product.Name;
+                cartItemDto.ProductImage = cartItem.Product.MainImageUrl;
+
+                if (cartItem.VariantId.HasValue && cartItem.Variant != null)
                 {
-                    var cartItem = await _context.CartItems.FindAsync(cartItemId);
-                    if (cartItem == null) return false;
+                    cartItemDto.VariantName = cartItem.Variant.VariantName;
+                }
 
-                    _context.CartItems.Remove(cartItem);
-                    await _context.SaveChangesAsync();
+                return cartItemDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching cart item {CartItemId}", cartItemId);
+                throw;
+            }
+        }
 
-                    // Update cart summary
-                    var cart = await _context.Carts
-                        .Include(c => c.CartItems)
-                        .FirstOrDefaultAsync(c => c.CartId == cartItem.CartId);
+        public async Task<CartItemDto> AddCartItemAsync(int customerId, AddCartItemDto cartItemDto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get or create cart
+                var cart = await GetOrCreateCartAsync(customerId);
 
-                    if (cart != null)
+                // Load cart items if they haven't been loaded
+                if (!_context.Entry(cart).Collection(c => c.CartItems).IsLoaded)
+                {
+                    await _context.Entry(cart)
+                        .Collection(c => c.CartItems)
+                        .LoadAsync();
+                }
+
+                // Check if product exists
+                var product = await _context.Products
+                    .FirstOrDefaultAsync(p => p.ProductId == cartItemDto.ProductId && p.IsAvailable == true);
+
+                if (product == null)
+                {
+                    throw new KeyNotFoundException($"Product with ID {cartItemDto.ProductId} not found or is not available");
+                }
+
+                // Check variant if specified
+                ProductVariant variant = null;
+                if (cartItemDto.VariantId.HasValue)
+                {
+                    variant = await _context.ProductVariants
+                        .FirstOrDefaultAsync(v => v.VariantId == cartItemDto.VariantId && v.ProductId == cartItemDto.ProductId && v.IsAvailable == true);
+
+                    if (variant == null)
                     {
-                        cart.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
+                        throw new KeyNotFoundException($"Variant with ID {cartItemDto.VariantId} not found or is not available for this product");
                     }
+                }
 
-                    await transaction.CommitAsync();
-                    return true;
-                }
-                catch
+                // Check if the item is already in the cart
+                var existingItem = cart.CartItems.FirstOrDefault(
+                    ci => ci.ProductId == cartItemDto.ProductId &&
+                          ci.VariantId == cartItemDto.VariantId);
+
+                CartItem cartItem;
+
+                if (existingItem != null)
                 {
-                    await transaction.RollbackAsync();
-                    throw;
+                    // Update quantity
+                    existingItem.Quantity += cartItemDto.Quantity;
+                    _context.Entry(existingItem).State = EntityState.Modified;
+                    cartItem = existingItem;
                 }
+                else
+                {
+                    // Add new item
+                    decimal priceToUse = variant != null
+                        ? variant.Price - (variant.Price * (variant.DiscountPercentage ?? 0) / 100)
+                        : product.BasePrice - (product.BasePrice * (product.DiscountPercentage ?? 0) / 100);
+
+                    cartItem = new CartItem
+                    {
+                        CartId = cart.CartId,
+                        ProductId = cartItemDto.ProductId,
+                        Quantity = cartItemDto.Quantity,
+                        PriceAtAddition = priceToUse,
+                        VariantId = cartItemDto.VariantId
+                    };
+
+                    _context.CartItems.Add(cartItem);
+                }
+
+                // Update cart timestamp
+                cart.UpdatedAt = DateTime.UtcNow;
+                _context.Entry(cart).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Load product details for the response
+                await _context.Entry(cartItem)
+                    .Reference(i => i.Product)
+                    .LoadAsync();
+
+                if (cartItem.VariantId.HasValue)
+                {
+                    await _context.Entry(cartItem)
+                        .Reference(i => i.Variant)
+                        .LoadAsync();
+                }
+
+                var cartItemResponse = _mapper.Map<CartItemDto>(cartItem);
+                cartItemResponse.ProductName = cartItem.Product.Name;
+                cartItemResponse.ProductImage = cartItem.Product.MainImageUrl;
+
+                if (cartItem.VariantId.HasValue && cartItem.Variant != null)
+                {
+                    cartItemResponse.VariantName = cartItem.Variant.VariantName;
+                }
+
+                return cartItemResponse;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error occurred while adding item to cart for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        public async Task<CartItemDto> UpdateCartItemQuantityAsync(int customerId, UpdateCartItemDto updateCartItemDto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get the cart item
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Cart)
+                    .Include(ci => ci.Product)
+                    .Include(ci => ci.Variant)
+                    .FirstOrDefaultAsync(ci => ci.CartItemId == updateCartItemDto.CartItemId);
+
+                if (cartItem == null)
+                    throw new KeyNotFoundException($"Cart item with ID {updateCartItemDto.CartItemId} not found");
+
+                // Verify the cart belongs to this customer
+                if (cartItem.Cart.CustomerId != customerId)
+                    throw new UnauthorizedAccessException("Cart item does not belong to this customer");
+
+                // Update quantity
+                cartItem.Quantity = updateCartItemDto.Quantity;
+
+                // Update cart timestamp
+                cartItem.Cart.UpdatedAt = DateTime.UtcNow;
+
+                _context.Entry(cartItem).State = EntityState.Modified;
+                _context.Entry(cartItem.Cart).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Prepare response
+                var cartItemResponse = _mapper.Map<CartItemDto>(cartItem);
+                cartItemResponse.ProductName = cartItem.Product.Name;
+                cartItemResponse.ProductImage = cartItem.Product.MainImageUrl;
+
+                if (cartItem.VariantId.HasValue && cartItem.Variant != null)
+                {
+                    cartItemResponse.VariantName = cartItem.Variant.VariantName;
+                }
+
+                return cartItemResponse;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error occurred while updating cart item quantity for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        public async Task<bool> RemoveCartItemAsync(int customerId, int cartItemId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get the cart item with cart
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Cart)
+                    .FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
+
+                if (cartItem == null)
+                    return false;
+
+                // Verify the cart belongs to this customer
+                if (cartItem.Cart.CustomerId != customerId)
+                    throw new UnauthorizedAccessException("Cart item does not belong to this customer");
+
+                // Remove item
+                _context.CartItems.Remove(cartItem);
+
+                // Update cart timestamp
+                cartItem.Cart.UpdatedAt = DateTime.UtcNow;
+                _context.Entry(cartItem.Cart).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error occurred while removing cart item for customer {CustomerId}", customerId);
+                throw;
             }
         }
 
         public async Task<bool> ClearCartAsync(int customerId)
         {
-            using (var transaction = await _context.Database.BeginTransactionAsync())
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                try
-                {
-                    var cart = await _context.Carts
-                        .Include(c => c.CartItems)
-                        .FirstOrDefaultAsync(c => c.CustomerId == customerId);
+                // Get the cart
+                var cart = await _context.Carts
+                    .Include(c => c.CartItems)
+                    .FirstOrDefaultAsync(c => c.CustomerId == customerId);
 
-                    if (cart == null) return false;
+                if (cart == null || cart.CartItems == null || !cart.CartItems.Any())
+                    return true; // No items to clear
 
-                    _context.CartItems.RemoveRange(cart.CartItems);
-                    cart.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
+                // Remove all items
+                _context.CartItems.RemoveRange(cart.CartItems);
 
-                    await transaction.CommitAsync();
-                    return true;
-                }
-                catch
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+                // Update cart timestamp
+                cart.UpdatedAt = DateTime.UtcNow;
+                _context.Entry(cart).State = EntityState.Modified;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error occurred while clearing cart for customer {CustomerId}", customerId);
+                throw;
             }
         }
 
-        public async Task<CartDto> GetCartAsync(int customerId, PaginationDto pagination)
+        public async Task<bool> ProductExistsInCartAsync(int customerId, int productId, int? variantId = null)
         {
+            try
+            {
+                // Get cart
+                var cart = await _context.Carts
+                    .Include(c => c.CartItems)
+                    .FirstOrDefaultAsync(c => c.CustomerId == customerId);
+
+                if (cart == null || cart.CartItems == null)
+                    return false;
+
+                // Check if product exists in cart
+                return cart.CartItems.Any(ci => ci.ProductId == productId && ci.VariantId == variantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if product exists in cart for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        public async Task<bool> CartItemExistsAndBelongsToCustomerAsync(int customerId, int cartItemId)
+        {
+            try
+            {
+                return await _context.CartItems
+                    .Include(ci => ci.Cart)
+                    .AnyAsync(ci => ci.CartItemId == cartItemId && ci.Cart.CustomerId == customerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if cart item exists for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        public async Task<int> GetCartItemsCountAsync(int customerId)
+        {
+            try
+            {
+                // Get cart
+                var cart = await _context.Carts
+                    .Include(c => c.CartItems)
+                    .FirstOrDefaultAsync(c => c.CustomerId == customerId);
+
+                if (cart == null || cart.CartItems == null)
+                    return 0;
+
+                return cart.CartItems.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting cart items count for customer {CustomerId}", customerId);
+                throw;
+            }
+        }
+
+        // Helper method to get existing cart or create a new one
+        private async Task<Cart> GetOrCreateCartAsync(int customerId)
+        {
+            // Try to find existing cart
             var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                .ThenInclude(ci => ci.Product)
-                .ThenInclude(p => p.ProductVariants)
                 .FirstOrDefaultAsync(c => c.CustomerId == customerId);
-            if (cart == null) return null;
-            pagination = pagination ?? new PaginationDto();
-            var cartItems = await _context.CartItems
-                .Where(ci => ci.CartId == cart.CartId)
-                .Skip(pagination.PageSize * pagination.PageNumber)
-                .Take(pagination.PageSize)
-                .Select(ci => new CartItemDto
+
+            // If no cart exists, create one
+            if (cart == null)
+            {
+                cart = new Cart
                 {
-                    CartItemId = ci.CartItemId,
-                    ProductId = ci.ProductId,
-                    VariantId = ci.VariantId ?? 0,
-                    Quantity = ci.Quantity,
-                    Price = ci.PriceAtAddition,
-                    Total = ci.Quantity * ci.PriceAtAddition
-                })
-                .ToListAsync();
-            return new CartDto
-            {
-                CartId = cart.CartId,
-                CustomerId = cart.CustomerId,
-                Items = cartItems
-            };
-        }
-        public async Task<CartItemDto> GetCartItemAsync(int cartItemId)
-        {
-            var cartItem = await _context.CartItems
-                .FirstOrDefaultAsync(ci => ci.CartItemId == cartItemId);
+                    CustomerId = customerId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
-            if (cartItem == null) return null;
+                _context.Carts.Add(cart);
+                await _context.SaveChangesAsync();
+            }
 
-            return new CartItemDto
-            {
-                CartItemId = cartItem.CartItemId,
-                ProductId = cartItem.ProductId,
-                VariantId = cartItem.VariantId ?? 0,
-                Quantity = cartItem.Quantity,
-                Price = cartItem.PriceAtAddition,
-                Total = cartItem.Quantity * cartItem.PriceAtAddition
-            };
-        }
-
-        private async Task<Cart> CreateCartForCustomerAsync(int customerId)
-        {
-            var cart = new Cart
-            {
-                CustomerId = customerId,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Carts.Add(cart);
-            await _context.SaveChangesAsync();
             return cart;
-        }
-        public async Task<CartDto> GetCartProducts(List<CartItem> cartItems, PaginationDto pagination)
-        {
-            var productIds = cartItems.Select(ci => ci.ProductId).ToList();
-            var variantIds = cartItems.Select(ci => ci.VariantId).ToList();
-
-       
-            var products = await _context.Products
-                .Where(p => productIds.Contains(p.ProductId))
-                .Where(p => p.ProductVariants.Any(v => variantIds.Contains(v.VariantId)))
-                .Include(p => p.ProductVariants)
-                .ToListAsync();
-
-            var pagedItems = cartItems
-                .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-                .Take(pagination.PageSize)
-                .ToList();
-            var cartDto = new CartDto
-            {
-                Items = pagedItems.Select(ci =>
-                {
-                    // Find the corresponding product and variant
-                    var product = products.FirstOrDefault(p => p.ProductId == ci.ProductId);
-                    var variant = product?.ProductVariants.FirstOrDefault(v => v.VariantId == ci.VariantId);
-
-                    return new CartItemDto
-                    {
-                        CartItemId = ci.CartItemId,
-                        ProductId = ci.ProductId,
-                        VariantId = ci.VariantId ?? 0,
-                        Quantity = ci.Quantity,
-                        Price = ci.PriceAtAddition,
-                        Total = ci.Quantity * ci.PriceAtAddition,
-                        
-                    };
-                }).ToList()
-            };
-
-            return cartDto;
-        }
-
-
-
-        
-
-        public Task<bool> AddToCart(CartItem cartItem)
-        {
-            throw new NotImplementedException();
         }
     }
 }

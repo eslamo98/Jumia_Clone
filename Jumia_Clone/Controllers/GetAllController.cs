@@ -322,29 +322,7 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
-        [HttpGet("Users")]
-        public async Task<IActionResult> GetAllUsers([FromQuery] PaginationDto pagination)
-        {
-            try
-            {
-                var users = await _getAllRepository.GetAllUsers(pagination);
-
-                return Ok(new ApiResponse<IEnumerable<Userdto>>
-                {
-                    Message = "Successfully retrieved all users.",
-                    Data = users,
-                    Success = true
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiErrorResponse
-                {
-                    Message = "An error occurred while retrieving users.",
-                    ErrorMessages = new string[] { ex.Message }
-                });
-            }
-        }
+        
         [HttpGet("WishlistItems")]
         public async Task<IActionResult> GetAllWishlistItems([FromQuery] PaginationDto pagination)
         {

@@ -2,6 +2,8 @@
 #nullable disable
 
 
+using System.ComponentModel.DataAnnotations;
+
 namespace Jumia_Clone.Models.Entities;
 
 public class User
@@ -25,7 +27,8 @@ public class User
     public string UserType { get; set; }
 
     public bool? IsActive { get; set; }
-
+    [MaxLength(250)]
+    public string ProfileImageUrl { get; set; }
     public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
 
     public virtual Admin Admin { get; set; }
