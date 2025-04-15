@@ -1,6 +1,7 @@
 ﻿using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Models.DTOs.CartItemDtos;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.WishlistItemDTOs;
 using Jumia_Clone.Models.Entities;
 using System.Threading.Tasks;
 
@@ -37,5 +38,8 @@ namespace Jumia_Clone.Repositories.Interfaces
 
         // Get cart items count
         Task<int> GetCartItemsCountAsync(int customerId);
+
+        // Add this to ICartRepository
+        Task<WishlistItemDto> SaveCartItemForLaterAsync(int customerId, int cartItemId);
     }
 }

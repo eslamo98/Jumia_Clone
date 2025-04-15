@@ -8,11 +8,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jumia_Clone.Repositories.Implementation
 {
-    public class SubcategoryRepository : ISubcategoryService
+    public class SubcategoriesRepository : ISubcategoryRepository
     {
         private readonly ApplicationDbContext _context;
 
-        public SubcategoryRepository(ApplicationDbContext context)
+        public SubcategoriesRepository(ApplicationDbContext context)
         {
             _context = context;
         }

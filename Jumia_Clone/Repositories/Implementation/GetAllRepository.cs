@@ -1,5 +1,4 @@
 ﻿using Jumia_Clone.Data;
-using Jumia_Clone.Models.DTOs;
 using Jumia_Clone.Models.DTOs.AdminDTOs;
 using Jumia_Clone.Models.DTOs.CouponDTOs;
 using Jumia_Clone.Models.DTOs.CustomerDTOs;
@@ -12,15 +11,11 @@ using Jumia_Clone.Models.DTOs.SearchResultClickDTOs;
 using Jumia_Clone.Models.DTOs.SellerDTOs;
 using Jumia_Clone.Models.DTOs.TrendingProductDTOs;
 using Jumia_Clone.Models.DTOs.UserCouponDTOs;
-using Jumia_Clone.Models.DTOs.UserDTOs;
-using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Models.DTOs.UserProductInteractionDTOs;
 using Jumia_Clone.Models.DTOs.UserRecommendationDTOs;
 using Jumia_Clone.Models.DTOs.WishlistItemDTOs;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 
 namespace Jumia_Clone.Repositories.Implementation
 {
@@ -85,7 +80,7 @@ namespace Jumia_Clone.Repositories.Implementation
             return admins ?? new List<Admindto>();
         }
 
-        public async Task<IEnumerable<Coupondto>> GetAllCoupons(PaginationDto pagination)
+        public async Task<IEnumerable<CouponDto>> GetAllCoupons(PaginationDto pagination)
         {
             var query = _context.Coupons.AsQueryable();
 
@@ -97,7 +92,7 @@ namespace Jumia_Clone.Repositories.Implementation
             }
 
             var coupons = await query
-                .Select(c => new Coupondto
+                .Select(c => new CouponDto
                 {
                     CouponId = c.CouponId,
                     Code = c.Code,
@@ -113,7 +108,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 })
                 .ToListAsync();
 
-            return coupons ?? new List<Coupondto>();
+            return coupons ?? new List<CouponDto>();
         }
 
         public async Task<IEnumerable<Customerdto>> GetAllCustomers(PaginationDto pagination)
@@ -390,7 +385,7 @@ namespace Jumia_Clone.Repositories.Implementation
 
 
 
-        public async Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(PaginationDto pagination)
+        public async Task<IEnumerable<WishlistItemDto>> GetAllWishlistItems(PaginationDto pagination)
         {
             var query = _context.WishlistItems.AsQueryable();
 
@@ -402,7 +397,7 @@ namespace Jumia_Clone.Repositories.Implementation
             }
 
             var wishlistItems = await query
-                .Select(wi => new WishlistItemdto
+                .Select(wi => new WishlistItemDto
                 {
                     WishlistItemId = wi.WishlistItemId,
                     WishlistId = wi.WishlistId,
@@ -411,7 +406,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 })
                 .ToListAsync();
 
-            return wishlistItems ?? new List<WishlistItemdto>();
+            return wishlistItems ?? new List<WishlistItemDto>();
         }
 
         public async Task<IEnumerable<TrendingProductdto>> GetTrendingProducts(PaginationDto pagination)

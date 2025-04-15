@@ -20,7 +20,7 @@ namespace Jumia_Clone.Repositories.Interfaces
     {
         Task<IEnumerable<AdminProductReviewdto>> GetAllAdminProductReviews(PaginationDto pagination);
         Task<IEnumerable<Admindto>> GetAllAdmins(PaginationDto pagination);
-        Task<IEnumerable<Coupondto>> GetAllCoupons(PaginationDto pagination);
+        Task<IEnumerable<CouponDto>> GetAllCoupons(PaginationDto pagination);
         Task<IEnumerable<Customerdto>> GetAllCustomers(PaginationDto pagination);
         Task<IEnumerable<Ratingdto>> GetAllRatings(PaginationDto pagination);
         Task<IEnumerable<ReturnItemdto>> GetAllReturnItems(PaginationDto pagination);
@@ -31,7 +31,7 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<IEnumerable<UserCoupondto>> GetAllUserCoupons(PaginationDto pagination);
         Task<IEnumerable<UserProductInteractiondto>> GetAllUserProductInteractions(PaginationDto pagination);
         Task<IEnumerable<UserRecommendationdto>> GetAllUserRecommendations(PaginationDto pagination);
-        Task<IEnumerable<WishlistItemdto>> GetAllWishlistItems(PaginationDto pagination);
+        Task<IEnumerable<WishlistItemDto>> GetAllWishlistItems(PaginationDto pagination);
         Task<IEnumerable<TrendingProductdto>> GetTrendingProducts(PaginationDto pagination);
     }
 
