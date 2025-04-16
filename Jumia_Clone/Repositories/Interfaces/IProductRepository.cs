@@ -29,8 +29,6 @@ namespace Jumia_Clone.Repositories.Interfaces
 
         // Images
         Task<ProductDto> UpdateProductMainImageAsync(int id, string imagePath);
-        Task<ProductImageDto> AddProductImageAsync(int productId, CreateProductImageDto imageDto);
-        Task DeleteProductImageAsync(int imageId);
 
         // Product attributes
         Task<ProductAttributeValueDto> AddProductAttributeValueAsync(int productId, CreateProductAttributeValueDto attributeValueDto);

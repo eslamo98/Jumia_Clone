@@ -3,8 +3,7 @@
     public class CreateProductImageDto
     {
         public int ProductId { get; set; }
-        public string ImageUrl { get; set; }
+        public List<IFormFile> ImageFiles { get; set; }
         public int? DisplayOrder { get; set; }
-        public IFormFile ImageFile { get; set; }
     }
 }
