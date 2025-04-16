@@ -47,8 +47,8 @@ namespace Jumia_Clone.Configuration
             services.AddMemoryCache();
 
             //Add global exception handler
-            services.AddExceptionHandler<GlobalExceptionHandler>();
-            services.AddProblemDetails();
+            //services.AddExceptionHandler<GlobalExceptionHandler>();
+            //services.AddProblemDetails();
             // Add Rate Limiting
             services.AddRateLimiter(options =>
             {
@@ -229,6 +229,10 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<IGetAllRepository, GetAllRepository>();
             services.AddScoped<ICouponRepository, CouponRepository>();
             services.AddScoped<IWishlistRepository, WishlistRepository>();
+            services.AddScoped<IProductVariantsRepository, ProductVariantsRepository>();
+            services.AddScoped<IProductImageRepository, ProductImageRepository>();
+            
+            
 
         }
 

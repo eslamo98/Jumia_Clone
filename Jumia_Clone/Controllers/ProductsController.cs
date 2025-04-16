@@ -1,9 +1,11 @@
 ﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 using Jumia_Clone.Models.Enums;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,11 +26,38 @@ namespace Jumia_Clone.Controllers
         }
 
         // GET: api/products
+        [Authorize(Roles = "Admin,seller,customer")]
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] PaginationDto pagination, [FromQuery] ProductFilterDto filter)
         {
             try
             {
+                // If not an admin, enforce approved status
+                if (!User.IsInRole("Admin") )
+                {
+                    // Ensure only approved products are retrieved for non-admin users
+                    filter ??= new ProductFilterDto();
+                    if (!string.IsNullOrEmpty(filter.ApprovalStatus) && IsValidApprovalStatus(filter.ApprovalStatus) && filter.ApprovalStatus != "approved")
+                        return Unauthorized(new ApiErrorResponse()
+                        {
+                            Message = "You don't have the permission",
+                            Success = false,
+                            ErrorMessages = new string[0]
+                        });
+                }
+                else
+                {
+                    // For admin, allow filtering by any valid status
+                    if (!string.IsNullOrEmpty(filter?.ApprovalStatus) && !IsValidApprovalStatus(filter.ApprovalStatus))
+                    {
+                        return BadRequest(new ApiErrorResponse
+                        {
+                            Message = "Invalid approval status",
+                            ErrorMessages = new[] { "The provided approval status is not valid." }
+                        });
+                    }
+                }
+
                 var products = await _productRepository.GetAllProductsAsync(pagination, filter);
 
                 // Convert image paths to URLs
@@ -37,6 +66,18 @@ namespace Jumia_Clone.Controllers
                     if (!string.IsNullOrEmpty(product.MainImageUrl))
                     {
                         product.MainImageUrl = _imageService.GetImageUrl(product.MainImageUrl);
+                    }
+
+                    // Optionally, handle variant images
+                    if (product.Variants != null)
+                    {
+                        foreach (var variant in product.Variants)
+                        {
+                            if (!string.IsNullOrEmpty(variant.VariantImageUrl))
+                            {
+                                variant.VariantImageUrl = _imageService.GetImageUrl(variant.VariantImageUrl);
+                            }
+                        }
                     }
                 }
 
@@ -49,6 +90,8 @@ namespace Jumia_Clone.Controllers
             }
             catch (Exception ex)
             {
+                // Log the exception
+
                 return StatusCode(500, new ApiErrorResponse
                 {
                     Message = "An error occurred while retrieving products",
@@ -56,7 +99,6 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
-
         // GET: api/products/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id, [FromQuery] bool includeDetails = false)
@@ -116,9 +158,7 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
-
-        // POST: api/products
-        [HttpPost]
+        [HttpPost()]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Create([FromForm] CreateProductInputDto productDto)
         {
@@ -136,7 +176,9 @@ namespace Jumia_Clone.Controllers
 
             try
             {
-                // First create the product
+               
+
+                // Create the product
                 var createdProduct = await _productRepository.CreateProductAsync(productDto);
 
                 // Handle main image upload if provided
@@ -227,6 +269,8 @@ namespace Jumia_Clone.Controllers
                         Data = null
                     });
                 }
+
+               
 
                 // Update basic product info
                 var updatedProduct = await _productRepository.UpdateProductAsync(id, productDto);
@@ -748,7 +792,7 @@ namespace Jumia_Clone.Controllers
 
         // POST: api/products/{id}/stock
         [HttpPost("{id}/stock")]
-        public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdateStockDto stockDto)
+        public async Task<IActionResult> UpdateStock(int id, [FromBody] UpdatedStockDto stockDto)
         {
             try
             {
@@ -782,7 +826,7 @@ namespace Jumia_Clone.Controllers
 
         // POST: api/products/variants/{variantId}/stock
         [HttpPost("variants/{variantId}/stock")]
-        public async Task<IActionResult> UpdateVariantStock(int variantId, [FromBody] UpdateStockDto stockDto)
+        public async Task<IActionResult> UpdateVariantStock(int variantId, [FromBody] UpdatedStockDto stockDto)
         {
             try
             {
@@ -817,8 +861,9 @@ namespace Jumia_Clone.Controllers
         // Helper to validate approval status
         private bool IsValidApprovalStatus(string status)
         {
-            return new[] { "pending", "approved", "rejected", "pending_review" }.Contains(status);
+            return new[] { "pending", "approved", "rejected", "pending_review", "deleted" }.Contains(status);
         }
+
     }
 
     // Additional DTOs needed for the controller
@@ -828,8 +873,9 @@ namespace Jumia_Clone.Controllers
         public string AdminNotes { get; set; }
     }
 
-    public class UpdateStockDto
+    public class UpdatedStockDto
     {
         public int NewStock { get; set; }
     }
+
 }

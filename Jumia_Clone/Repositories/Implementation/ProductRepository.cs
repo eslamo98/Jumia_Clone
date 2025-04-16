@@ -28,7 +28,7 @@ namespace Jumia_Clone.Repositories.Implementation
         public async Task<ProductDto> GetProductByIdAsync(int id, bool includeDetails = false)
         {
             var query = _context.Products
-                .Where(p => p.ProductId == id);
+                .Where(p => p.ProductId == id && p.ApprovalStatus != "deleted");
 
             if (includeDetails)
             {
@@ -57,7 +57,7 @@ namespace Jumia_Clone.Repositories.Implementation
         {
             filter ??= new ProductFilterDto(); // Initialize empty filter if null
 
-            var query = _context.Products.AsQueryable();
+            var query = _context.Products.Where(p => p.ApprovalStatus != "deleted").AsQueryable();
 
             // Apply filters
             if (filter.CategoryId.HasValue)
@@ -91,10 +91,10 @@ namespace Jumia_Clone.Repositories.Implementation
                 query = query.Where(p => p.ApprovalStatus == filter.ApprovalStatus);
             }
             else
-            {
-                // By default, show only approved products
-                query = query.Where(p => p.ApprovalStatus == "approved" && p.IsAvailable == true);
-            }
+            //{
+            //    // By default, show only approved products
+            //    query = query.Where(p => p.ApprovalStatus == "approved" && p.IsAvailable == true);
+            //}
 
             // Apply sorting
             query = ApplySorting(query, filter.SortBy, filter.SortDirection);
@@ -106,9 +106,11 @@ namespace Jumia_Clone.Repositories.Implementation
                 .Include(p => p.Seller)
                 .Include(p => p.Subcategory)
                 .Include(p => p.Ratings)
+                .Include(p => p.ProductVariants)
+                .Include(P => P.ProductImages)
                 .ToListAsync();
 
-            return products.Select(p => MapToProductDto(p, false));
+            return products.Select(p => MapToProductDto(p, true));
         }
 
         // Create a new product (with pending approval status)
@@ -138,63 +140,63 @@ namespace Jumia_Clone.Repositories.Implementation
                 _context.Products.Add(product);
                 await _context.SaveChangesAsync();
 
-                // Process attribute values if any
-                if (productDto.AttributeValues != null && productDto.AttributeValues.Any())
-                {
-                    foreach (var attrValue in productDto.AttributeValues)
-                    {
-                        var attributeValue = new ProductAttributeValue
-                        {
-                            ProductId = product.ProductId,
-                            AttributeId = attrValue.AttributeId,
-                            Value = attrValue.Value
-                        };
+                //// Process attribute values if any
+                //if (productDto.AttributeValues != null && productDto.AttributeValues.Any())
+                //{
+                //    foreach (var attrValue in productDto.AttributeValues)
+                //    {
+                //        var attributeValue = new ProductAttributeValue
+                //        {
+                //            ProductId = product.ProductId,
+                //            AttributeId = attrValue.AttributeId,
+                //            Value = attrValue.Value
+                //        };
 
-                        _context.ProductAttributeValues.Add(attributeValue);
-                    }
+                //        _context.ProductAttributeValues.Add(attributeValue);
+                //    }
 
-                    await _context.SaveChangesAsync();
-                }
+                //    await _context.SaveChangesAsync();
+                //}
 
-                // Process variants if any
-                if (productDto.Variants != null && productDto.Variants.Any())
-                {
-                    foreach (CreateProductVariantDto variantDto in productDto.Variants)
-                    {
-                        var variant = new ProductVariant
-                        {
-                            ProductId = product.ProductId,
-                            VariantName = variantDto.VariantName,
-                            Price = variantDto.Price,
-                            DiscountPercentage = variantDto.DiscountPercentage,
-                            StockQuantity = variantDto.StockQuantity,
-                            Sku = variantDto.Sku,
-                            IsDefault = variantDto.IsDefault,
-                            IsAvailable = false // Default to unavailable until product is approved
-                        };
+                //// Process variants if any
+                //if (productDto.Variants != null && productDto.Variants.Any())
+                //{
+                //    foreach (CreateProductVariantDto variantDto in productDto.Variants)
+                //    {
+                //        var variant = new ProductVariant
+                //        {
+                //            ProductId = product.ProductId,
+                //            VariantName = variantDto.VariantName,
+                //            Price = variantDto.Price,
+                //            DiscountPercentage = variantDto.DiscountPercentage,
+                //            StockQuantity = variantDto.StockQuantity,
+                //            Sku = variantDto.Sku,
+                //            IsDefault = variantDto.IsDefault,
+                //            IsAvailable = false // Default to unavailable until product is approved
+                //        };
 
-                        _context.ProductVariants.Add(variant);
-                        await _context.SaveChangesAsync();
+                //        _context.ProductVariants.Add(variant);
+                //        await _context.SaveChangesAsync();
 
-                        // Add variant attributes
-                        if (variantDto.Attributes != null && variantDto.Attributes.Any())
-                        {
-                            foreach (var attr in variantDto.Attributes)
-                            {
-                                var variantAttribute = new VariantAttribute
-                                {
-                                    VariantId = variant.VariantId,
-                                    AttributeName = attr.AttributeName,
-                                    AttributeValue = attr.AttributeValue
-                                };
+                //        // Add variant attributes
+                //        if (variantDto.Attributes != null && variantDto.Attributes.Any())
+                //        {
+                //            foreach (var attr in variantDto.Attributes)
+                //            {
+                //                var variantAttribute = new VariantAttribute
+                //                {
+                //                    VariantId = variant.VariantId,
+                //                    AttributeName = attr.AttributeName,
+                //                    AttributeValue = attr.AttributeValue
+                //                };
 
-                                _context.VariantAttributes.Add(variantAttribute);
-                            }
+                //                _context.VariantAttributes.Add(variantAttribute);
+                //            }
 
-                            await _context.SaveChangesAsync();
-                        }
-                    }
-                }
+                //            await _context.SaveChangesAsync();
+                //        }
+                //    }
+                //}
 
                 await transaction.CommitAsync();
 
@@ -256,98 +258,146 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         // Delete a product and all related data
+        //public async Task DeleteProductAsync(int id)
+        //{
+        //    using var transaction = await _context.Database.BeginTransactionAsync();
+
+        //    try
+        //    {
+        //        // Get product with all related entities
+        //        var product = await _context.Products
+        //            .Include(p => p.ProductImages)
+        //            .Include(p => p.ProductVariants)
+        //            .ThenInclude(v => v.VariantAttributes)
+        //            .Include(p => p.ProductAttributeValues)
+        //            .FirstOrDefaultAsync(p => p.ProductId == id);
+
+        //        if (product == null)
+        //            throw new KeyNotFoundException($"Product with ID {id} not found");
+
+        //        // Delete all product images
+        //        foreach (var image in product.ProductImages)
+        //        {
+        //            await _imageService.DeleteImageAsync(image.ImageUrl);
+        //            _context.ProductImages.Remove(image);
+        //        }
+
+        //        // Delete main product image
+        //        if (!string.IsNullOrEmpty(product.MainImageUrl))
+        //        {
+        //            await _imageService.DeleteImageAsync(product.MainImageUrl);
+        //        }
+
+        //        // Delete variant attributes
+        //        foreach (var variant in product.ProductVariants)
+        //        {
+        //            _context.VariantAttributes.RemoveRange(variant.VariantAttributes);
+        //        }
+
+        //        // Delete variants
+        //        _context.ProductVariants.RemoveRange(product.ProductVariants);
+
+        //        // Delete attribute values
+        //        _context.ProductAttributeValues.RemoveRange(product.ProductAttributeValues);
+
+        //        // Check if product is in any carts and remove
+        //        var cartItems = await _context.CartItems
+        //            .Where(ci => ci.ProductId == id)
+        //            .ToListAsync();
+        //        _context.CartItems.RemoveRange(cartItems);
+
+        //        // Check if product is in any wishlists and remove
+        //        var wishlistItems = await _context.WishlistItems
+        //            .Where(wi => wi.ProductId == id)
+        //            .ToListAsync();
+        //        _context.WishlistItems.RemoveRange(wishlistItems);
+
+        //        // Remove product from trending products
+        //        var trendingProducts = await _context.TrendingProducts
+        //            .Where(tp => tp.ProductId == id)
+        //            .ToListAsync();
+        //        _context.TrendingProducts.RemoveRange(trendingProducts);
+
+        //        // Remove product from recommendations
+        //        var productRecommendations = await _context.ProductRecommendations
+        //            .Where(pr => pr.SourceProductId == id || pr.RecommendedProductId == id)
+        //            .ToListAsync();
+        //        _context.ProductRecommendations.RemoveRange(productRecommendations);
+
+        //        // Remove user recommendations for this product
+        //        var userRecommendations = await _context.UserRecommendations
+        //            .Where(ur => ur.ProductId == id)
+        //            .ToListAsync();
+        //        _context.UserRecommendations.RemoveRange(userRecommendations);
+
+        //        // Remove search result clicks
+        //        var searchResultClicks = await _context.SearchResultClicks
+        //            .Where(src => src.ProductId == id)
+        //            .ToListAsync();
+        //        _context.SearchResultClicks.RemoveRange(searchResultClicks);
+
+        //        // Remove product views
+        //        var productViews = await _context.ProductViews
+        //            .Where(pv => pv.ProductId == id)
+        //            .ToListAsync();
+        //        _context.ProductViews.RemoveRange(productViews);
+
+        //        // Remove user product interactions
+        //        var userProductInteractions = await _context.UserProductInteractions
+        //            .Where(upi => upi.ProductId == id)
+        //            .ToListAsync();
+        //        _context.UserProductInteractions.RemoveRange(userProductInteractions);
+
+        //        // Finally, delete the product
+        //        _context.Products.Remove(product);
+
+        //        await _context.SaveChangesAsync();
+        //        await transaction.CommitAsync();
+        //    }
+        //    catch (Exception)
+        //    {
+        //        await transaction.RollbackAsync();
+        //        throw;
+        //    }
+        //}
+
+        // Update the delete method to use soft delete approach
         public async Task DeleteProductAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // Get product with all related entities
+                // Get product with its variants
                 var product = await _context.Products
-                    .Include(p => p.ProductImages)
                     .Include(p => p.ProductVariants)
-                    .ThenInclude(v => v.VariantAttributes)
-                    .Include(p => p.ProductAttributeValues)
                     .FirstOrDefaultAsync(p => p.ProductId == id);
 
                 if (product == null)
                     throw new KeyNotFoundException($"Product with ID {id} not found");
 
-                // Delete all product images
-                foreach (var image in product.ProductImages)
-                {
-                    await _imageService.DeleteImageAsync(image.ImageUrl);
-                    _context.ProductImages.Remove(image);
-                }
+                // Implement soft delete
+                product.ApprovalStatus = "deleted";
+                product.IsAvailable = false;
+                product.UpdatedAt = DateTime.UtcNow;
 
-                // Delete main product image
-                if (!string.IsNullOrEmpty(product.MainImageUrl))
-                {
-                    await _imageService.DeleteImageAsync(product.MainImageUrl);
-                }
-
-                // Delete variant attributes
+                // Also mark all variants as unavailable
                 foreach (var variant in product.ProductVariants)
                 {
-                    _context.VariantAttributes.RemoveRange(variant.VariantAttributes);
+                    variant.IsAvailable = false;
                 }
 
-                // Delete variants
-                _context.ProductVariants.RemoveRange(product.ProductVariants);
-
-                // Delete attribute values
-                _context.ProductAttributeValues.RemoveRange(product.ProductAttributeValues);
-
-                // Check if product is in any carts and remove
+                // Remove from carts
                 var cartItems = await _context.CartItems
                     .Where(ci => ci.ProductId == id)
                     .ToListAsync();
                 _context.CartItems.RemoveRange(cartItems);
 
-                // Check if product is in any wishlists and remove
+                // Remove from wishlists
                 var wishlistItems = await _context.WishlistItems
                     .Where(wi => wi.ProductId == id)
                     .ToListAsync();
                 _context.WishlistItems.RemoveRange(wishlistItems);
-
-                // Remove product from trending products
-                var trendingProducts = await _context.TrendingProducts
-                    .Where(tp => tp.ProductId == id)
-                    .ToListAsync();
-                _context.TrendingProducts.RemoveRange(trendingProducts);
-
-                // Remove product from recommendations
-                var productRecommendations = await _context.ProductRecommendations
-                    .Where(pr => pr.SourceProductId == id || pr.RecommendedProductId == id)
-                    .ToListAsync();
-                _context.ProductRecommendations.RemoveRange(productRecommendations);
-
-                // Remove user recommendations for this product
-                var userRecommendations = await _context.UserRecommendations
-                    .Where(ur => ur.ProductId == id)
-                    .ToListAsync();
-                _context.UserRecommendations.RemoveRange(userRecommendations);
-
-                // Remove search result clicks
-                var searchResultClicks = await _context.SearchResultClicks
-                    .Where(src => src.ProductId == id)
-                    .ToListAsync();
-                _context.SearchResultClicks.RemoveRange(searchResultClicks);
-
-                // Remove product views
-                var productViews = await _context.ProductViews
-                    .Where(pv => pv.ProductId == id)
-                    .ToListAsync();
-                _context.ProductViews.RemoveRange(productViews);
-
-                // Remove user product interactions
-                var userProductInteractions = await _context.UserProductInteractions
-                    .Where(upi => upi.ProductId == id)
-                    .ToListAsync();
-                _context.UserProductInteractions.RemoveRange(userProductInteractions);
-
-                // Finally, delete the product
-                _context.Products.Remove(product);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -421,7 +471,7 @@ namespace Jumia_Clone.Repositories.Implementation
             filter ??= new ProductFilterDto();
 
             var query = _context.Products
-                .Where(p => p.SellerId == sellerId);
+                .Where(p => p.SellerId == sellerId && p.ApprovalStatus != "deleted");
 
             // Apply filters
             if (filter.SubcategoryId.HasValue)
@@ -673,49 +723,6 @@ namespace Jumia_Clone.Repositories.Implementation
             return await GetProductByIdAsync(id, false);
         }
 
-        // Add a product image
-        public async Task<ProductImageDto> AddProductImageAsync(int productId, CreateProductImageDto imageDto)
-        {
-            var product = await _context.Products.FindAsync(productId);
-
-            if (product == null)
-                throw new KeyNotFoundException($"Product with ID {productId} not found");
-
-            var productImage = new ProductImage
-            {
-                ProductId = productId,
-                ImageUrl = imageDto.ImageUrl,
-                DisplayOrder = imageDto.DisplayOrder
-            };
-
-            _context.ProductImages.Add(productImage);
-            await _context.SaveChangesAsync();
-
-            return new ProductImageDto
-            {
-                ImageId = productImage.ImageId,
-                ProductId = productImage.ProductId,
-                ImageUrl = productImage.ImageUrl,
-                DisplayOrder = productImage.DisplayOrder ?? 0
-            };
-        }
-
-        // Delete a product image
-        public async Task DeleteProductImageAsync(int imageId)
-        {
-            var image = await _context.ProductImages.FindAsync(imageId);
-
-            if (image == null)
-                throw new KeyNotFoundException($"Image with ID {imageId} not found");
-
-            // Delete the image file
-            await _imageService.DeleteImageAsync(image.ImageUrl);
-
-            // Remove from database
-            _context.ProductImages.Remove(image);
-            await _context.SaveChangesAsync();
-        }
-
         // Add a product attribute value
         public async Task<ProductAttributeValueDto> AddProductAttributeValueAsync(int productId, CreateProductAttributeValueDto attributeValueDto)
         {
@@ -890,7 +897,8 @@ namespace Jumia_Clone.Repositories.Implementation
 
             // Fallback: Get products from the same subcategory
             var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.ProductId == productId);
+                .FirstOrDefaultAsync(p => p.ProductId == productId &&
+                   p.ApprovalStatus != "deleted");
 
             if (product == null)
                 throw new KeyNotFoundException($"Product with ID {productId} not found");
@@ -899,7 +907,8 @@ namespace Jumia_Clone.Repositories.Implementation
                 .Where(p => p.SubcategoryId == product.SubcategoryId &&
                            p.ProductId != productId &&
                            p.ApprovalStatus == "approved" &&
-                           p.IsAvailable == true)
+                           p.IsAvailable == true &&
+                           p.ApprovalStatus != "deleted")
                 .OrderByDescending(p => p.AverageRating)
                 .Take(count)
                 .Include(p => p.Seller)
@@ -939,7 +948,8 @@ namespace Jumia_Clone.Repositories.Implementation
 
             // Return only approved and available products
             return trending
-                .Where(tp => tp.Product.ApprovalStatus == "approved" && tp.Product.IsAvailable == true)
+                .Where(tp => tp.Product.ApprovalStatus == "approved" && tp.Product.IsAvailable == true &&
+                    tp.Product.ApprovalStatus != "deleted")
                 .Select(tp => MapToProductDto(tp.Product, false));
         }
         #region Helper Methods

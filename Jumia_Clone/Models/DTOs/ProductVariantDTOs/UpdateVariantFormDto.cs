@@ -2,10 +2,10 @@
 
 namespace Jumia_Clone.Models.DTOs.ProductVariantDTOs
 {
-    public class CreateProductVariantDto
+    public class UpdateVariantFormDto
     {
         [Required]
-        public int ProductId { get; set; }
+        public int VariantId { get; set; }
 
         [Required]
         [StringLength(100, MinimumLength = 2)]
@@ -25,16 +25,15 @@ namespace Jumia_Clone.Models.DTOs.ProductVariantDTOs
         [StringLength(50)]
         public string Sku { get; set; }
 
-        public IFormFile VariantImageFile { get; set; }
+        public IFormFile VariantImage { get; set; }
 
         public bool? IsDefault { get; set; }
 
         public bool? IsAvailable { get; set; }
-        // Add this field to hold the JSON string
-        public string VariantAttributesJson { get; set; }
 
-        // Keep the original property but don't expect it to be bound from the form
-        [System.Text.Json.Serialization.JsonIgnore]
-        public List<VariantAttributeInputDto> VariantAttributes { get; set; } = new List<VariantAttributeInputDto>();
+        // For handling attributes as form fields
+        public string AttributeNames { get; set; } // Comma-separated list of attribute names
+        public string AttributeValues { get; set; } // Comma-separated list of attribute values
     }
+    
 }

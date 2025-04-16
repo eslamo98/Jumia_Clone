@@ -460,7 +460,7 @@ namespace Jumia_Clone.Controllers
                 if (registrationDto.ProfileImage != null)
                 {
                     imagePath = await _imageService.SaveImageAsync(
-                        registrationDto.ProfileImage, EntityType.User, registrationDto.Email);
+                        registrationDto.ProfileImage, EntityType.User, StringHelper.GetUniquePath(registrationDto.FirstName));
                 }
 
                 // Register customer
@@ -547,7 +547,7 @@ namespace Jumia_Clone.Controllers
 
                     // Save new image
                     imagePath = await _imageService.SaveImageAsync(
-                        updateDto.ProfileImage, EntityType.User, existingUser.Email);
+                        updateDto.ProfileImage, EntityType.User, StringHelper.GetUniquePath(existingUser.FirstName));
                 }
 
                 // Update customer
@@ -734,7 +734,7 @@ namespace Jumia_Clone.Controllers
                 if (registrationDto.ProfileImage != null)
                 {
                     profileImagePath = await _imageService.SaveImageAsync(
-                        registrationDto.ProfileImage, EntityType.User, registrationDto.Email);
+                        registrationDto.ProfileImage, EntityType.User, StringHelper.GetUniquePath(registrationDto.FirstName));
                 }
 
                 // Process business logo if provided
@@ -841,7 +841,7 @@ namespace Jumia_Clone.Controllers
 
                     // Save new image
                     profileImagePath = await _imageService.SaveImageAsync(
-                        updateDto.ProfileImage, EntityType.User, existingUser.Email);
+                        updateDto.ProfileImage, EntityType.User, StringHelper.GetUniquePath(existingUser.FirstName));
                 }
 
                 // Process business logo if provided
@@ -856,7 +856,7 @@ namespace Jumia_Clone.Controllers
 
                     // Save new image
                     businessLogoPath = await _imageService.SaveImageAsync(
-                        updateDto.BusinessLogo, EntityType.User, $"{existingUser.Email}_business");
+                        updateDto.BusinessLogo, EntityType.User, StringHelper.GetUniquePath($"{existingUser.FirstName}_business"));
                 }
 
                 // Update seller
@@ -1164,7 +1164,7 @@ namespace Jumia_Clone.Controllers
 
                     // Save new image
                     imagePath = await _imageService.SaveImageAsync(
-                        updateDto.ProfileImage, EntityType.User, existingUser.Email);
+                        updateDto.ProfileImage, EntityType.User, StringHelper.GetUniquePath(existingUser.FirstName));
                 }
 
                 // Update admin

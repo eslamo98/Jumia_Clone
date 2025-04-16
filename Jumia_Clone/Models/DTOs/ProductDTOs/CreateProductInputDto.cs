@@ -1,5 +1,6 @@
 ﻿using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
+using System.Text.Json.Serialization;
 
 namespace Jumia_Clone.Models.DTOs.ProductDTOs
 {
@@ -13,7 +14,11 @@ namespace Jumia_Clone.Models.DTOs.ProductDTOs
         public int SubcategoryId { get; set; }
         public int SellerId { get; set; }
         public IFormFile MainImageFile { get; set; }
-        public List<CreateProductAttributeValueDto> AttributeValues { get; set; }
-        public List<CreateProductVariantDto> Variants { get; set; }
+        //public string ProductAttributesJson { get; set; }
+        //public string ProductVariantsJson { get; set; }
+        //[JsonIgnore]
+        //public List<CreateProductAttributeValueDto> AttributeValues { get; set; }
+        //[JsonIgnore]
+        //public List<CreateProductVariantDto> Variants { get; set; }
     }
 }
