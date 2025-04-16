@@ -42,5 +42,10 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<ProductStatisticsDto> GetProductStatisticsAsync(int productId, DateTime? startDate = null, DateTime? endDate = null);
         Task<IEnumerable<ProductDto>> GetRelatedProductsAsync(int productId, int count = 5);
         Task<IEnumerable<ProductDto>> GetTrendingProductsAsync(int categoryId = 0, int subcategoryId = 0, int count = 10);
+        Task<IEnumerable<ProductDto>> GetRandomProductsByCategoryAsync(string categoryName, int count = 15);
+        Task<IEnumerable<ProductDto>> GetRandomProductsBySubcategoryAsync(string subcategoryName, int count = 15);
+
+
+
     }
 }

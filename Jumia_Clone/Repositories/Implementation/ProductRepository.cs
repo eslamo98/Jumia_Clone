@@ -1,4 +1,6 @@
 ﻿using Jumia_Clone.Data;
+using Jumia_Clone.Helpers;
+using Jumia_Clone.Models.Constants;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
@@ -28,7 +30,7 @@ namespace Jumia_Clone.Repositories.Implementation
         public async Task<ProductDto> GetProductByIdAsync(int id, bool includeDetails = false)
         {
             var query = _context.Products
-                .Where(p => p.ProductId == id && p.ApprovalStatus != "deleted");
+                .Where(p => p.ProductId == id && p.ApprovalStatus != ProductApprovalStatus.Deleted);
 
             if (includeDetails)
             {
@@ -57,7 +59,8 @@ namespace Jumia_Clone.Repositories.Implementation
         {
             filter ??= new ProductFilterDto(); // Initialize empty filter if null
 
-            var query = _context.Products.Where(p => p.ApprovalStatus != "deleted").AsQueryable();
+            var query = _context.Products.Where(p => p.ApprovalStatus != ProductApprovalStatus.Deleted)
+                .AsQueryable();
 
             // Apply filters
             if (filter.CategoryId.HasValue)
@@ -93,7 +96,7 @@ namespace Jumia_Clone.Repositories.Implementation
             else
             //{
             //    // By default, show only approved products
-            //    query = query.Where(p => p.ApprovalStatus == "approved" && p.IsAvailable == true);
+            //    query = query.Where(p => p.ApprovalStatus == ProductApprovalStatus.Approved && p.IsAvailable == true);
             //}
 
             // Apply sorting
@@ -108,6 +111,8 @@ namespace Jumia_Clone.Repositories.Implementation
                 .Include(p => p.Ratings)
                 .Include(p => p.ProductVariants)
                 .Include(P => P.ProductImages)
+                .Include(p => p.ProductAttributeValues)
+                .ThenInclude(p => p.Attribute)
                 .ToListAsync();
 
             return products.Select(p => MapToProductDto(p, true));
@@ -117,7 +122,6 @@ namespace Jumia_Clone.Repositories.Implementation
         public async Task<ProductDto> CreateProductAsync(CreateProductInputDto productDto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
                 // Create the product entity
@@ -131,72 +135,43 @@ namespace Jumia_Clone.Repositories.Implementation
                     SubcategoryId = productDto.SubcategoryId,
                     SellerId = productDto.SellerId,
                     MainImageUrl = "",
-                    IsAvailable = false, // Default to unavailable until approved
-                    ApprovalStatus = "pending", // Default to pending
+                    IsAvailable = false,
+
+                    ApprovalStatus = ProductApprovalStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-
                 _context.Products.Add(product);
                 await _context.SaveChangesAsync();
 
-                //// Process attribute values if any
-                //if (productDto.AttributeValues != null && productDto.AttributeValues.Any())
-                //{
-                //    foreach (var attrValue in productDto.AttributeValues)
-                //    {
-                //        var attributeValue = new ProductAttributeValue
-                //        {
-                //            ProductId = product.ProductId,
-                //            AttributeId = attrValue.AttributeId,
-                //            Value = attrValue.Value
-                //        };
+                // Process attribute values if any
+                if (productDto.AttributeValues != null && productDto.AttributeValues.Any())
+                {
+                    foreach (var attrValue in productDto.AttributeValues)
+                    {
+                        attrValue.ProductId = product.ProductId;
+                        // Validate the attribute exists
+                        var attribute = await _context.ProductAttributes
+                            .FirstOrDefaultAsync(pa => pa.AttributeId == attrValue.AttributeId);
 
-                //        _context.ProductAttributeValues.Add(attributeValue);
-                //    }
+                        if (attribute == null)
+                            throw new KeyNotFoundException($"Attribute with ID {attrValue.AttributeId} not found");
 
-                //    await _context.SaveChangesAsync();
-                //}
+                        // Validate the attribute value
+                        ValidateAttributeValue(attribute, attrValue.Value);
 
-                //// Process variants if any
-                //if (productDto.Variants != null && productDto.Variants.Any())
-                //{
-                //    foreach (CreateProductVariantDto variantDto in productDto.Variants)
-                //    {
-                //        var variant = new ProductVariant
-                //        {
-                //            ProductId = product.ProductId,
-                //            VariantName = variantDto.VariantName,
-                //            Price = variantDto.Price,
-                //            DiscountPercentage = variantDto.DiscountPercentage,
-                //            StockQuantity = variantDto.StockQuantity,
-                //            Sku = variantDto.Sku,
-                //            IsDefault = variantDto.IsDefault,
-                //            IsAvailable = false // Default to unavailable until product is approved
-                //        };
+                        var attributeValue = new ProductAttributeValue
+                        {
+                            ProductId = product.ProductId,
+                            AttributeId = attrValue.AttributeId,
+                            Value = attrValue.Value
+                        };
 
-                //        _context.ProductVariants.Add(variant);
-                //        await _context.SaveChangesAsync();
+                        _context.ProductAttributeValues.Add(attributeValue);
+                    }
 
-                //        // Add variant attributes
-                //        if (variantDto.Attributes != null && variantDto.Attributes.Any())
-                //        {
-                //            foreach (var attr in variantDto.Attributes)
-                //            {
-                //                var variantAttribute = new VariantAttribute
-                //                {
-                //                    VariantId = variant.VariantId,
-                //                    AttributeName = attr.AttributeName,
-                //                    AttributeValue = attr.AttributeValue
-                //                };
-
-                //                _context.VariantAttributes.Add(variantAttribute);
-                //            }
-
-                //            await _context.SaveChangesAsync();
-                //        }
-                //    }
-                //}
+                    await _context.SaveChangesAsync();
+                }
 
                 await transaction.CommitAsync();
 
@@ -210,11 +185,73 @@ namespace Jumia_Clone.Repositories.Implementation
             }
         }
 
+        // Add this validation method to your repository
+        private void ValidateAttributeValue(ProductAttribute attribute, string value)
+        {
+            // Check if value is provided
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException($"Value cannot be empty for attribute {attribute.Name}");
+
+            // Validate based on attribute type
+            switch (attribute.Type)
+            {
+                case ProductAttributeTypes.Text:
+                    if (value.Length > 500)
+                        throw new ArgumentException($"Text value for {attribute.Name} is too long");
+                    break;
+
+                case ProductAttributeTypes.Number:
+                    if (!AttributeValidationHelper.IsValidNumeric(value))
+                        throw new ArgumentException($"Value for {attribute.Name} must be a valid integer");
+                    break;
+
+                case ProductAttributeTypes.Decimal:
+                    if (!AttributeValidationHelper.IsValidNumeric(value, "decimal"))
+                        throw new ArgumentException($"Value for {attribute.Name} must be a valid decimal number");
+                    break;
+
+                case ProductAttributeTypes.Date:
+                    if (!AttributeValidationHelper.IsValidDate(value))
+                        throw new ArgumentException($"Value for {attribute.Name} must be a valid date");
+                    break;
+
+                case ProductAttributeTypes.Dropdown:
+                case ProductAttributeTypes.Radio:
+                    if (!AttributeValidationHelper.IsValidListValue(value, attribute.PossibleValues))
+                        throw new ArgumentException($"Value for {attribute.Name} must be one of: {attribute.PossibleValues}");
+                    break;
+
+                case ProductAttributeTypes.Multiselect:
+                    if (!AttributeValidationHelper.IsValidListValue(value, attribute.PossibleValues, true))
+                        throw new ArgumentException($"All values for {attribute.Name} must be from: {attribute.PossibleValues}");
+                    break;
+
+                case ProductAttributeTypes.Checkbox:
+                    if (!AttributeValidationHelper.IsValidBoolean(value))
+                        throw new ArgumentException($"Value for {attribute.Name} must be true or false");
+                    break;
+
+                case ProductAttributeTypes.Color:
+                    if (!AttributeValidationHelper.IsValidColor(value))
+                        throw new ArgumentException($"Invalid color value for {attribute.Name}");
+                    break;
+
+                case ProductAttributeTypes.Size:
+                    if (!AttributeValidationHelper.IsValidSize(value, attribute.PossibleValues))
+                        throw new ArgumentException($"Invalid size value for {attribute.Name}");
+                    break;
+
+                default:
+                    throw new ArgumentException($"Unsupported attribute type: {attribute.Type}");
+            }
+        }
+
         // Update a product
         public async Task<ProductDto> UpdateProductAsync(int id, UpdateProductInputDto productDto)
         {
             var product = await _context.Products
                 .Include(p => p.ProductVariants)
+                .Include(p => p.ProductAttributeValues)
                 .FirstOrDefaultAsync(p => p.ProductId == id);
 
             if (product == null)
@@ -234,17 +271,67 @@ namespace Jumia_Clone.Repositories.Implementation
                 product.UpdatedAt = DateTime.UtcNow;
 
                 // If product was approved and seller makes significant changes, reset to pending
-                if (product.ApprovalStatus == "approved" &&
+                if (product.ApprovalStatus == ProductApprovalStatus.Approved &&
                     (product.Name != productDto.Name ||
                      product.Description != productDto.Description ||
                      product.SubcategoryId != productDto.SubcategoryId))
                 {
-                    product.ApprovalStatus = "pending_review";
+                    
+                    product.ApprovalStatus = ProductApprovalStatus.PendingReview;
                     product.IsAvailable = false;
                 }
 
-                await _context.SaveChangesAsync();
+                // Process attribute values if provided
+                if (productDto.ProductAttributeValuesJson != null)
+                {
+                    // Deserialize attribute values
+                    List<CreateProductAttributeValueDto> attributeValues;
+                    try
+                    {
+                        attributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(
+                            productDto.ProductAttributeValuesJson,
+                            new System.Text.Json.JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            }
+                        );
+                    }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        throw new ArgumentException("Invalid attribute values JSON", ex);
+                    }
 
+                    // Remove existing attribute values
+                    _context.ProductAttributeValues.RemoveRange(product.ProductAttributeValues);
+
+                    // Add new attribute values
+                    if (attributeValues != null && attributeValues.Any())
+                    {
+                        foreach (var attrValue in attributeValues)
+                        {
+                            // Validate the attribute exists
+                            var attribute = await _context.ProductAttributes
+                                .FirstOrDefaultAsync(pa => pa.AttributeId == attrValue.AttributeId);
+
+                            if (attribute == null)
+                                throw new KeyNotFoundException($"Attribute with ID {attrValue.AttributeId} not found");
+
+                            // Validate the attribute value
+                            ValidateAttributeValue(attribute, attrValue.Value);
+
+                            var productAttributeValue = new ProductAttributeValue
+                            {
+                                ProductId = product.ProductId,
+                                AttributeId = attrValue.AttributeId,
+                                Value = attrValue.Value
+                            };
+
+                            _context.ProductAttributeValues.Add(productAttributeValue);
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 // Return the updated product
@@ -360,7 +447,7 @@ namespace Jumia_Clone.Repositories.Implementation
         //        throw;
         //    }
         //}
-
+        
         // Update the delete method to use soft delete approach
         public async Task DeleteProductAsync(int id)
         {
@@ -375,9 +462,9 @@ namespace Jumia_Clone.Repositories.Implementation
 
                 if (product == null)
                     throw new KeyNotFoundException($"Product with ID {id} not found");
-
                 // Implement soft delete
-                product.ApprovalStatus = "deleted";
+                product.ApprovalStatus = ProductApprovalStatus.Deleted
+;
                 product.IsAvailable = false;
                 product.UpdatedAt = DateTime.UtcNow;
 
@@ -427,12 +514,12 @@ namespace Jumia_Clone.Repositories.Implementation
                 product.ApprovalStatus = approvalStatus;
 
                 // Update availability based on approval status
-                product.IsAvailable = approvalStatus == "approved";
+                product.IsAvailable = approvalStatus == ProductApprovalStatus.Approved;
 
                 // Update variants availability based on product approval
                 foreach (var variant in product.ProductVariants)
                 {
-                    variant.IsAvailable = approvalStatus == "approved" && variant.StockQuantity > 0;
+                    variant.IsAvailable = approvalStatus == ProductApprovalStatus.Approved && variant.StockQuantity > 0;
                 }
 
                 // TODO: Create an AdminProductReview entity to store admin notes and review history
@@ -453,7 +540,7 @@ namespace Jumia_Clone.Repositories.Implementation
         public async Task<IEnumerable<ProductDto>> GetPendingApprovalProductsAsync(PaginationDto pagination)
         {
             var products = await _context.Products
-                .Where(p => p.ApprovalStatus == "pending" || p.ApprovalStatus == "pending_review")
+                .Where(p => p.ApprovalStatus == ProductApprovalStatus.Pending || p.ApprovalStatus == ProductApprovalStatus.PendingReview)
                 .OrderBy(p => p.CreatedAt)
                 .Skip(pagination.PageSize * pagination.PageNumber)
                 .Take(pagination.PageSize)
@@ -471,7 +558,8 @@ namespace Jumia_Clone.Repositories.Implementation
             filter ??= new ProductFilterDto();
 
             var query = _context.Products
-                .Where(p => p.SellerId == sellerId && p.ApprovalStatus != "deleted");
+                .Where(p => p.SellerId == sellerId && p.ApprovalStatus !=                 ProductApprovalStatus.Deleted
+);
 
             // Apply filters
             if (filter.SubcategoryId.HasValue)
@@ -523,7 +611,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     StockQuantity = variantDto.StockQuantity,
                     Sku = variantDto.Sku,
                     IsDefault = variantDto.IsDefault,
-                    IsAvailable = product.ApprovalStatus == "approved" && variantDto.StockQuantity > 0
+                    IsAvailable = product.ApprovalStatus == ProductApprovalStatus.Approved && variantDto.StockQuantity > 0
                 };
 
                 _context.ProductVariants.Add(variant);
@@ -597,7 +685,7 @@ namespace Jumia_Clone.Repositories.Implementation
 
                 // Check product approval status to determine availability
                 var product = await _context.Products.FindAsync(variant.ProductId);
-                variant.IsAvailable = product?.ApprovalStatus == "approved" && variantDto.StockQuantity > 0;
+                variant.IsAvailable = product?.ApprovalStatus == ProductApprovalStatus.Approved && variantDto.StockQuantity > 0;
 
                 await _context.SaveChangesAsync();
 
@@ -787,7 +875,7 @@ namespace Jumia_Clone.Repositories.Implementation
             product.UpdatedAt = DateTime.UtcNow;
 
             // Update availability if approved
-            if (product.ApprovalStatus == "approved")
+            if (product.ApprovalStatus == ProductApprovalStatus.Approved)
             {
                 product.IsAvailable = newStock > 0;
             }
@@ -810,7 +898,7 @@ namespace Jumia_Clone.Repositories.Implementation
             variant.StockQuantity = newStock;
 
             // Update availability if product is approved
-            if (variant.Product.ApprovalStatus == "approved")
+            if (variant.Product.ApprovalStatus == ProductApprovalStatus.Approved)
             {
                 variant.IsAvailable = newStock > 0;
             }
@@ -898,7 +986,8 @@ namespace Jumia_Clone.Repositories.Implementation
             // Fallback: Get products from the same subcategory
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.ProductId == productId &&
-                   p.ApprovalStatus != "deleted");
+                   p.ApprovalStatus !=                 ProductApprovalStatus.Deleted
+);
 
             if (product == null)
                 throw new KeyNotFoundException($"Product with ID {productId} not found");
@@ -906,9 +995,10 @@ namespace Jumia_Clone.Repositories.Implementation
             var relatedProducts = await _context.Products
                 .Where(p => p.SubcategoryId == product.SubcategoryId &&
                            p.ProductId != productId &&
-                           p.ApprovalStatus == "approved" &&
+                           p.ApprovalStatus == ProductApprovalStatus.Approved &&
                            p.IsAvailable == true &&
-                           p.ApprovalStatus != "deleted")
+                           p.ApprovalStatus !=                 ProductApprovalStatus.Deleted
+)
                 .OrderByDescending(p => p.AverageRating)
                 .Take(count)
                 .Include(p => p.Seller)
@@ -948,8 +1038,9 @@ namespace Jumia_Clone.Repositories.Implementation
 
             // Return only approved and available products
             return trending
-                .Where(tp => tp.Product.ApprovalStatus == "approved" && tp.Product.IsAvailable == true &&
-                    tp.Product.ApprovalStatus != "deleted")
+                .Where(tp => tp.Product.ApprovalStatus == ProductApprovalStatus.Approved && tp.Product.IsAvailable == true &&
+                    tp.Product.ApprovalStatus !=                 ProductApprovalStatus.Deleted
+)
                 .Select(tp => MapToProductDto(tp.Product, false));
         }
         #region Helper Methods
@@ -1014,7 +1105,8 @@ namespace Jumia_Clone.Repositories.Implementation
                             ProductId = pav.ProductId,
                             AttributeId = pav.AttributeId,
                             AttributeName = pav.Attribute?.Name,
-                            Value = pav.Value
+                            Value = pav.Value,
+                            AttributeType = pav.Attribute?.Type
                         })
                         .ToList();
                 }
@@ -1028,7 +1120,35 @@ namespace Jumia_Clone.Repositories.Implementation
 
             return productDto;
         }
+        public async Task<IEnumerable<ProductDto>> GetRandomProductsByCategoryAsync(string categoryName, int count = 5)
+        {
+            var randomProducts = await _context.Products
+                .Where(p => p.Subcategory.Category.Name == categoryName &&
+                            p.ApprovalStatus == ProductApprovalStatus.Approved &&
+                            p.IsAvailable == true)
+                .OrderBy(x => EF.Functions.Random()) // Use database-specific random ordering
+                .Take(count)
+                .Include(p => p.Seller)
+                .Include(p => p.Subcategory)
+                .ToListAsync();
 
+            return randomProducts.Select(p => MapToProductDto(p, false));
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetRandomProductsBySubcategoryAsync(string subcategoryName, int count = 5)
+        {
+            var randomProducts = await _context.Products
+                .Where(p => p.Subcategory.Name == subcategoryName &&
+                            p.ApprovalStatus == ProductApprovalStatus.Approved &&
+                            p.IsAvailable == true)
+                .OrderBy(x => EF.Functions.Random()) 
+                .Take(count)
+                .Include(p => p.Seller)
+                .Include(p => p.Subcategory)
+                .ToListAsync();
+
+            return randomProducts.Select(p => MapToProductDto(p, false));
+        }
         // Map ProductVariant entity to ProductVariantDto
         private ProductVariantDto MapToProductVariantDto(ProductVariant variant)
         {
