@@ -99,6 +99,78 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+
+        // GET: api/products/random/category
+        [HttpGet("random/category")]
+        public async Task<IActionResult> GetRandomProductsByCategory(
+            [FromQuery] string categoryName,
+            [FromQuery] int count = 5)
+        {
+            try
+            {
+                var products = await _productRepository.GetRandomProductsByCategoryAsync(categoryName, count);
+
+                // Convert image paths to URLs
+                foreach (var product in products)
+                {
+                    if (!string.IsNullOrEmpty(product.MainImageUrl))
+                    {
+                        product.MainImageUrl = _imageService.GetImageUrl(product.MainImageUrl);
+                    }
+                }
+
+                return Ok(new ApiResponse<IEnumerable<ProductDto>>
+                {
+                    Message = $"Successfully retrieved {count} random products from category {categoryName}",
+                    Data = products,
+                    Success = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving random products",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        // GET: api/products/random/subcategory
+        [HttpGet("random/subcategory")]
+        public async Task<IActionResult> GetRandomProductsBySubcategory(
+            [FromQuery] string subcategoryName,
+            [FromQuery] int count = 5)
+        {
+            try
+            {
+                var products = await _productRepository.GetRandomProductsBySubcategoryAsync(subcategoryName, count);
+
+                // Convert image paths to URLs
+                foreach (var product in products)
+                {
+                    if (!string.IsNullOrEmpty(product.MainImageUrl))
+                    {
+                        product.MainImageUrl = _imageService.GetImageUrl(product.MainImageUrl);
+                    }
+                }
+
+                return Ok(new ApiResponse<IEnumerable<ProductDto>>
+                {
+                    Message = $"Successfully retrieved {count} random products from subcategory {subcategoryName}",
+                    Data = products,
+                    Success = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving random products",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
         // GET: api/products/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id, [FromQuery] bool includeDetails = false)
@@ -176,7 +248,27 @@ namespace Jumia_Clone.Controllers
 
             try
             {
-               
+               if(!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
+                {
+                    try
+                    {
+                        if (productDto.ProductAttributeValuesJson.StartsWith("'"))
+                        {
+                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(1);
+                        }
+                        if (productDto.ProductAttributeValuesJson.EndsWith("'"))
+                        {
+                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length -1);
+                        }
+
+                        productDto.AttributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(productDto.ProductAttributeValuesJson);
+                    }
+                    catch (Exception)
+                    {
+
+                        throw;
+                    }
+                }
 
                 // Create the product
                 var createdProduct = await _productRepository.CreateProductAsync(productDto);

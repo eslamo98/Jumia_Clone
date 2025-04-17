@@ -231,6 +231,7 @@ namespace Jumia_Clone.Configuration
             services.AddScoped<IWishlistRepository, WishlistRepository>();
             services.AddScoped<IProductVariantsRepository, ProductVariantsRepository>();
             services.AddScoped<IProductImageRepository, ProductImageRepository>();
+            services.AddScoped<IProductAttributeRepository, ProductAttributeRepository>();
             
             
 
