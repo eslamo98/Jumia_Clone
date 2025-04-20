@@ -78,6 +78,7 @@ namespace Jumia_Clone.Repositories.Implementation
         {
             var existingVariant = await _context.ProductVariants
                 .Include(v => v.VariantAttributes)
+                .Include(v => v.Product)
                 .FirstOrDefaultAsync(v => v.VariantId == variant.VariantId);
 
             if (existingVariant == null)
@@ -85,42 +86,65 @@ namespace Jumia_Clone.Repositories.Implementation
                 throw new KeyNotFoundException($"Variant with ID {variant.VariantId} not found");
             }
 
-            // Update variant properties
-            existingVariant.VariantName = variant.VariantName;
-            existingVariant.Price = variant.Price;
-            existingVariant.DiscountPercentage = variant.DiscountPercentage;
-            existingVariant.StockQuantity = variant.StockQuantity;
-            existingVariant.Sku = variant.Sku;
-            existingVariant.IsAvailable = variant.IsAvailable;
-
-            // Handle the default flag
-            if (variant.IsDefault == true && existingVariant.IsDefault != true)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                // If this variant is being set as default, unset any existing default
-                var currentDefault = await _context.ProductVariants
-                    .Where(v => v.ProductId == existingVariant.ProductId && v.IsDefault == true && v.VariantId != variant.VariantId)
-                    .ToListAsync();
+                // Update variant properties
+                existingVariant.VariantName = variant.VariantName;
+                existingVariant.Price = variant.Price;
+                existingVariant.DiscountPercentage = variant.DiscountPercentage;
+                existingVariant.StockQuantity = variant.StockQuantity;
+                existingVariant.Sku = variant.Sku;
+                existingVariant.IsAvailable = variant.IsAvailable;
 
-                foreach (var defaultVariant in currentDefault)
+                // Handle the default flag
+                if (variant.IsDefault == true && existingVariant.IsDefault != true)
                 {
-                    defaultVariant.IsDefault = false;
+                    // If this variant is being set as default, unset any existing default
+                    var currentDefault = await _context.ProductVariants
+                        .Where(v => v.ProductId == existingVariant.ProductId && v.IsDefault == true && v.VariantId != variant.VariantId)
+                        .ToListAsync();
+
+                    foreach (var defaultVariant in currentDefault)
+                    {
+                        defaultVariant.IsDefault = false;
+                    }
+
+                    existingVariant.IsDefault = true;
+
+                    // Sync the product data with this new default variant
+                    existingVariant.Product.BasePrice = existingVariant.Price;
+                    existingVariant.Product.DiscountPercentage = existingVariant.DiscountPercentage;
+                    existingVariant.Product.StockQuantity = existingVariant.StockQuantity;
+                }
+                else
+                {
+                    existingVariant.IsDefault = variant.IsDefault;
+
+                    // If this is already the default variant, update product data
+                    if (existingVariant.IsDefault == true)
+                    {
+                        existingVariant.Product.BasePrice = existingVariant.Price;
+                        existingVariant.Product.DiscountPercentage = existingVariant.DiscountPercentage;
+                        existingVariant.Product.StockQuantity = existingVariant.StockQuantity;
+                    }
                 }
 
-                existingVariant.IsDefault = true;
-            }
-            else
-            {
-                existingVariant.IsDefault = variant.IsDefault;
-            }
+                // Handle variant attributes if provided
+                if (variant.VariantAttributes != null)
+                {
+                    await SyncVariantAttributesAsync(variant.VariantId, attributes);
+                }
 
-            // Handle variant attributes if provided
-            if (variant.VariantAttributes != null)
-            {
-                await SyncVariantAttributesAsync(variant.VariantId, attributes);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return existingVariant;
             }
-
-            await _context.SaveChangesAsync();
-            return existingVariant;
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<ProductVariant> UpdateVariantImageAsync(int variantId, string imagePath)
@@ -142,6 +166,8 @@ namespace Jumia_Clone.Repositories.Implementation
             var variant = await _context.ProductVariants
                 .Include(v => v.OrderItems)
                 .Include(v => v.CartItems)
+                .Include(v => v.Product)
+                .Include(v => v.VariantAttributes)
                 .FirstOrDefaultAsync(v => v.VariantId == variantId);
 
             if (variant == null)
@@ -149,61 +175,101 @@ namespace Jumia_Clone.Repositories.Implementation
                 throw new KeyNotFoundException($"Variant with ID {variantId} not found");
             }
 
-            // Check if the variant is used in any orders
-            if (variant.OrderItems.Any())
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                throw new InvalidOperationException("Cannot delete variant because it is referenced in orders");
-            }
-
-            // Remove from carts
-            if (variant.CartItems.Any())
-            {
-                _context.CartItems.RemoveRange(variant.CartItems);
-            }
-
-            // Remove variant attributes
-            var attributes = await _context.VariantAttributes
-                .Where(a => a.VariantId == variantId)
-                .ToListAsync();
-            _context.VariantAttributes.RemoveRange(attributes);
-
-            // Check if this is the default variant and if there are other variants
-            if (variant.IsDefault == true)
-            {
-                var otherVariant = await _context.ProductVariants
-                    .Where(v => v.ProductId == variant.ProductId && v.VariantId != variantId)
-                    .FirstOrDefaultAsync();
-
-                if (otherVariant != null)
+                // Check if the variant is used in any orders
+                if (variant.OrderItems.Any())
                 {
-                    // Make another variant the default
-                    otherVariant.IsDefault = true;
+                    throw new InvalidOperationException("Cannot delete variant because it is referenced in orders");
                 }
+
+                // Remove from carts
+                if (variant.CartItems.Any())
+                {
+                    _context.CartItems.RemoveRange(variant.CartItems);
+                }
+
+                // Remove variant attributes
+                if (variant.VariantAttributes.Any())
+                {
+                    _context.VariantAttributes.RemoveRange(variant.VariantAttributes);
+                }
+
+                // Handle default variant changes
+                if (variant.IsDefault == true)
+                {
+                    var otherVariant = await _context.ProductVariants
+                        .Where(v => v.ProductId == variant.ProductId && v.VariantId != variantId)
+                        .FirstOrDefaultAsync();
+
+                    if (otherVariant != null)
+                    {
+                        // Make another variant the default and sync product data
+                        otherVariant.IsDefault = true;
+                        variant.Product.BasePrice = otherVariant.Price;
+                        variant.Product.DiscountPercentage = otherVariant.DiscountPercentage;
+                        variant.Product.StockQuantity = otherVariant.StockQuantity;
+                    }
+                    else
+                    {
+                        // This was the last variant, throw exception
+                        throw new InvalidOperationException("Cannot delete the only variant of a product");
+                    }
+                }
+
+                _context.ProductVariants.Remove(variant);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
             }
-
-            _context.ProductVariants.Remove(variant);
-            await _context.SaveChangesAsync();
-
-            return true;
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<ProductVariant> UpdateStockAsync(int variantId, int newStock)
         {
-            var variant = await _context.ProductVariants.FindAsync(variantId);
+            var variant = await _context.ProductVariants
+                .Include(v => v.Product)
+                .FirstOrDefaultAsync(v => v.VariantId == variantId);
+
             if (variant == null)
             {
                 throw new KeyNotFoundException($"Variant with ID {variantId} not found");
             }
 
-            variant.StockQuantity = newStock;
-            await _context.SaveChangesAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                variant.StockQuantity = newStock;
 
-            return variant;
+                // If this is the default variant, sync with product
+                if (variant.IsDefault == true)
+                {
+                    variant.Product.StockQuantity = newStock;
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return variant;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<bool> DecrementStockAsync(int variantId, int quantity)
         {
-            var variant = await _context.ProductVariants.FindAsync(variantId);
+            var variant = await _context.ProductVariants
+                .Include(v => v.Product)
+                .FirstOrDefaultAsync(v => v.VariantId == variantId);
+
             if (variant == null)
             {
                 throw new KeyNotFoundException($"Variant with ID {variantId} not found");
@@ -214,10 +280,26 @@ namespace Jumia_Clone.Repositories.Implementation
                 throw new InvalidOperationException("Not enough stock available");
             }
 
-            variant.StockQuantity -= quantity;
-            await _context.SaveChangesAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                variant.StockQuantity -= quantity;
 
-            return true;
+                // If this is the default variant, sync with product
+                if (variant.IsDefault == true)
+                {
+                    variant.Product.StockQuantity = variant.StockQuantity;
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<IEnumerable<ProductVariant>> GetLowStockVariantsAsync(int threshold = 10)
@@ -237,24 +319,43 @@ namespace Jumia_Clone.Repositories.Implementation
 
         public async Task<ProductVariant> SetAsDefaultVariantAsync(int variantId)
         {
-            var variant = await _context.ProductVariants.FindAsync(variantId);
+            var variant = await _context.ProductVariants
+                .Include(v => v.Product)
+                .FirstOrDefaultAsync(v => v.VariantId == variantId);
+
             if (variant == null)
             {
                 throw new KeyNotFoundException($"Variant with ID {variantId} not found");
             }
 
-            // Find and update all variants for this product
-            var productVariants = await _context.ProductVariants
-                .Where(v => v.ProductId == variant.ProductId)
-                .ToListAsync();
-
-            foreach (var v in productVariants)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                v.IsDefault = (v.VariantId == variantId);
-            }
+                // Find and update all variants for this product
+                var productVariants = await _context.ProductVariants
+                    .Where(v => v.ProductId == variant.ProductId)
+                    .ToListAsync();
 
-            await _context.SaveChangesAsync();
-            return variant;
+                foreach (var v in productVariants)
+                {
+                    v.IsDefault = (v.VariantId == variantId);
+                }
+
+                // Sync the product data with the new default variant
+                variant.Product.BasePrice = variant.Price;
+                variant.Product.DiscountPercentage = variant.DiscountPercentage;
+                variant.Product.StockQuantity = variant.StockQuantity;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return variant;
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<IEnumerable<VariantAttribute>> GetVariantAttributesAsync(int variantId)
@@ -417,8 +518,8 @@ namespace Jumia_Clone.Repositories.Implementation
                 if (existingAttr != null)
                 {
                     // Update existing attribute if value is different
-                        existingAttr.AttributeValue = newAttr.Value;
-                        await UpdateVariantAttributeAsync(existingAttr);
+                    existingAttr.AttributeValue = newAttr.Value;
+                    await UpdateVariantAttributeAsync(existingAttr);
                 }
                 else
                 {

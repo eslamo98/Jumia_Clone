@@ -178,5 +178,17 @@ namespace Jumia_Clone.Repositories.Implementation
                 }
             }
         }
+
+        public async Task<IEnumerable<CategoryBasicInfoDto>> GetBasicInfo()
+        {
+            return await _context.Categories
+                .Where(c => c.IsActive == true)
+                .Select(c => new CategoryBasicInfoDto
+                {
+                    CategoryId = c.CategoryId,
+                    Name = c.Name
+                })
+                .ToListAsync();
+        }
     }
 }

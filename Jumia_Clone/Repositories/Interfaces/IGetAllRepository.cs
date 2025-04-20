@@ -18,7 +18,6 @@ namespace Jumia_Clone.Repositories.Interfaces
 {
     public interface IGetAllRepository
     {
-        Task<IEnumerable<AdminProductReviewdto>> GetAllAdminProductReviews(PaginationDto pagination);
         Task<IEnumerable<Admindto>> GetAllAdmins(PaginationDto pagination);
         Task<IEnumerable<CouponDto>> GetAllCoupons(PaginationDto pagination);
         Task<IEnumerable<Customerdto>> GetAllCustomers(PaginationDto pagination);

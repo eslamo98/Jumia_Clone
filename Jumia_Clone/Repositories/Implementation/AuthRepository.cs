@@ -1,4 +1,6 @@
 ﻿using Jumia_Clone.Data;
+using Jumia_Clone.Helpers;
+using Jumia_Clone.Models.Constants;
 using Jumia_Clone.Models.DTOs.AuthenticationDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
@@ -35,11 +37,11 @@ namespace Jumia_Clone.Repositories.Implementation
             var user = new User
             {
                 Email = registerDto.Email,
-                PasswordHash = HashPassword(registerDto.Password),
+                PasswordHash = PasswordHelpers.HashPassword(registerDto.Password),
                 FirstName = registerDto.FirstName,
                 LastName = registerDto.LastName,
                 PhoneNumber = registerDto.PhoneNumber,
-                UserType = registerDto.UserType,
+                UserType = UserRoles.Customer,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 IsActive = true
@@ -53,7 +55,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 await _userRepository.CreateUserAsync(user);
 
                 // Create corresponding customer or seller record
-                if (registerDto.UserType.ToLower() == "customer")
+                if (registerDto.UserType.ToLower() == UserRoles.Customer.ToLower())
                 {
                     var customer = new Customer
                     {
@@ -66,7 +68,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     user.UserId = customer.UserId;
                 }
                 // If seller, it should be registered through RegisterSellerAsync method
-                else if (registerDto.UserType.ToLower() == "seller")
+                else if (registerDto.UserType.ToLower() == UserRoles.Seller.ToLower())
                 {
                     throw new Exception("Please use the register-seller endpoint to register as a seller");
                 }
@@ -107,7 +109,7 @@ namespace Jumia_Clone.Repositories.Implementation
             }
 
             // Verify user type is seller
-            if (registerDto.UserType.ToLower() != "seller")
+            if (registerDto.UserType.ToLower() != UserRoles.Seller.ToLower())
             {
                 throw new Exception("User type must be 'seller' for seller registration");
             }
@@ -116,11 +118,11 @@ namespace Jumia_Clone.Repositories.Implementation
             var user = new User
             {
                 Email = registerDto.Email,
-                PasswordHash = HashPassword(registerDto.Password),
+                PasswordHash = PasswordHelpers.HashPassword(registerDto.Password),
                 FirstName = registerDto.FirstName,
                 LastName = registerDto.LastName,
                 PhoneNumber = registerDto.PhoneNumber,
-                UserType = "seller",
+                UserType = UserRoles.Seller,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 IsActive = true
@@ -179,7 +181,7 @@ namespace Jumia_Clone.Repositories.Implementation
             // Get user by email
             var user = await _userRepository.GetUserByEmailAsync(loginDto.Email);
 
-            if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
+            if (user == null || !PasswordHelpers.VerifyPassword(loginDto.Password, user.PasswordHash))
             {
                 throw new Exception("Invalid credentials");
             }
@@ -194,7 +196,7 @@ namespace Jumia_Clone.Repositories.Implementation
             try
             {
                 // Update last login for customer
-                if (user.UserType.ToLower() == "customer" && user.Customer != null)
+                if (user.UserType.ToLower() == UserRoles.Customer.ToLower() && user.Customer != null)
                 {
                     user.Customer.LastLogin = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
@@ -276,7 +278,7 @@ namespace Jumia_Clone.Repositories.Implementation
             }
 
             // Verify old password
-            if (!VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
+            if (!PasswordHelpers.VerifyPassword(changePasswordDto.CurrentPassword, user.PasswordHash))
             {
                 throw new Exception("Current password is incorrect");
             }
@@ -286,7 +288,7 @@ namespace Jumia_Clone.Repositories.Implementation
             try
             {
                 // Set new password
-                user.PasswordHash = HashPassword(changePasswordDto.NewPassword);
+                user.PasswordHash = PasswordHelpers.HashPassword(changePasswordDto.NewPassword);
                 user.UpdatedAt = DateTime.UtcNow;
 
                 bool result = await _userRepository.UpdateUserAsync(user);
@@ -303,57 +305,6 @@ namespace Jumia_Clone.Repositories.Implementation
         }
 
         #region Helper Methods
-
-        private string HashPassword(string password)
-        {
-            byte[] fixedSalt = new byte[64];
-            for (int i = 0; i < fixedSalt.Length; i++)
-            {
-                fixedSalt[i] = 1;
-            }
-
-            using var hmac = new HMACSHA512(fixedSalt);
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
-            var hashBytes = new byte[fixedSalt.Length + hash.Length];
-            Array.Copy(fixedSalt, 0, hashBytes, 0, fixedSalt.Length);
-            Array.Copy(hash, 0, hashBytes, fixedSalt.Length, hash.Length);
-
-            return Convert.ToBase64String(hashBytes);
-        }
-
-        private bool VerifyPassword(string password, string storedHash)
-        {
-            try
-            {
-                // Decode the stored hash
-                var hashBytes = Convert.FromBase64String(storedHash);
-
-                // Extract salt (first 64 bytes)
-                var salt = new byte[64];
-                Array.Copy(hashBytes, 0, salt, 0, 64);
-
-                // Hash the input password with the extracted salt
-                using var hmac = new HMACSHA512(salt);
-                var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
-                // Compare the computed hash with the stored hash
-                for (int i = 0; i < computedHash.Length; i++)
-                {
-                    if (computedHash[i] != hashBytes[64 + i])
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
         private TokenResponseDto GenerateTokens(User user)
         {
             var claims = new[]

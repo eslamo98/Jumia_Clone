@@ -40,6 +40,7 @@ namespace Jumia_Clone.Repositories.Interfaces
             Task<SellerDto> RegisterSellerAsync(SellerRegistrationDto registrationDto, string profileImagePath = null, string businessLogoPath = null);
             Task<SellerDto> UpdateSellerAsync(SellerUpdateDto updateDto, string profileImagePath = null, string businessLogoPath = null);
             Task<SellerDto> VerifySellerAsync(int sellerId, bool verify);
+            Task<IEnumerable<BasicSellerInfoDto>> GetBasicSellersInfo();
 
             // Admin methods
             Task<IEnumerable<AdminDto>> GetAllAdminsAsync(PaginationDto pagination, string searchTerm = null);

@@ -287,5 +287,29 @@ namespace Jumia_Clone.Controllers
                 ));
             }
         }
+
+        // GET: api/Subcategory/basic-info
+        [HttpGet("basic-info/{categoryId}")]
+        public async Task<IActionResult> GetBasicInfo(int categoryId)
+        {
+            try
+            {
+                var subcategories = await _subcategoryRepository.GetBasicInfo(categoryId);
+                return Ok(new ApiResponse<IEnumerable<SubcategoryBasicInfoDto>>
+                {
+                    Message = "Successfully retrieved basic subcategory information",
+                    Data = subcategories,
+                    Success = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving basic subcategory information",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
     }
 }

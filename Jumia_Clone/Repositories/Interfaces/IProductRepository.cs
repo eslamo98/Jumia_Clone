@@ -11,7 +11,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         // Basic CRUD operations
         Task<ProductDto> GetProductByIdAsync(int id, bool includeDetails = false);
         Task<IEnumerable<ProductDto>> GetAllProductsAsync(PaginationDto pagination, ProductFilterDto filter = null);
-        Task<ProductDto> CreateProductAsync(CreateProductInputDto productDto);
+        public Task<ProductDto> CreateProductAsync(CreateProductInputDto productDto, bool isAdmin = false);
+        public Task<int> GetProductsCount();
         Task<ProductDto> UpdateProductAsync(int id, UpdateProductInputDto productDto);
         Task DeleteProductAsync(int id);
 

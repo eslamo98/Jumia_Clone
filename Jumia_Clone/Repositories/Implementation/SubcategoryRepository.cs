@@ -244,7 +244,16 @@ namespace Jumia_Clone.Repositories.Implementation
             return subcategories;
         }
 
-
-
+        public async Task<IEnumerable<SubcategoryBasicInfoDto>> GetBasicInfo(int categoryId)
+        {
+            return await _context.SubCategories
+                .Where(sc => sc.IsActive == true && sc.CategoryId == categoryId)
+                .Select(sc => new SubcategoryBasicInfoDto
+                {
+                    SubcategoryId = sc.SubcategoryId,
+                    Name = sc.Name
+                })
+                .ToListAsync();
+        }
     }
 }

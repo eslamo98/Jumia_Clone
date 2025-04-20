@@ -341,7 +341,7 @@ namespace Jumia_Clone.Controllers
                     ErrorMessages = new[] { ex.Message }
                 });
             }
-        
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(new ApiErrorResponse
@@ -407,7 +407,7 @@ namespace Jumia_Clone.Controllers
                 // Update the variant in database
                 var updatedVariant = await _repository.UpdateAsync(existingVariant, dto.VariantAttributes);
 
-                
+
 
                 // Handle image upload if provided
                 if (dto.VariantImageFile != null && dto.VariantImageFile.Length > 0)
@@ -961,12 +961,8 @@ namespace Jumia_Clone.Controllers
             // so we rely on cache expiration for those
 
             // This will also trigger refreshes in related product caches
-            // For example, product detail endpoints that include variants
             string cacheKeyPattern = $"product_*_{productId}";
-            // Note: In a real implementation, you'd need a way to find all cache keys
-            // that match a pattern, which isn't directly supported by IMemoryCache.
-            // You might use a distributed cache like Redis that supports this,
-            // or maintain a list of active cache keys.
+
         }
     }
 }
