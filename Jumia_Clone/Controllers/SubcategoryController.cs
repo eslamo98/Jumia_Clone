@@ -57,13 +57,13 @@ namespace Jumia_Clone.Controllers
 
         // GET: api/Subcategory/categories/subcategory
         // Get all subcategories (with optional inactive flag)
-        [HttpGet("categories/subcategory")]
+        [HttpGet]
         public async Task<IActionResult> GetAllSubcategories([FromQuery] PaginationDto pagination, [FromQuery] bool include_inactive = false)
         {
             try
             {
                 var subcategories = await _subcategoryRepository.GetAllSubcategoriesAsync(pagination, include_inactive);
-
+                var totalItems = await _subcategoryRepository.GetCountAsync();
                 foreach (var subcategory in subcategories)
                 {
                     if (!string.IsNullOrEmpty(subcategory.ImageUrl))
@@ -72,10 +72,14 @@ namespace Jumia_Clone.Controllers
                     }
                 }
 
-                return Ok(new ApiResponse<IEnumerable<Subcategorydto>>(
-                    subcategories,
-                    "Successfully retrieved all subcategories."
-                ));
+                return Ok(new 
+                { 
+                    Message = "Successfully retrieved all subcategories.",
+                    Data = subcategories,
+                    Success = true,
+                    totalItems = totalItems
+
+                });
             }
             catch (Exception ex)
             {
@@ -125,6 +129,7 @@ namespace Jumia_Clone.Controllers
         // POST: api/Subcategory
         // Create a new subcategory
         [HttpPost]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> Create([FromBody] CreateSubcategoryDto subcategoryDto)
         {
             if (!ModelState.IsValid)
@@ -178,6 +183,7 @@ namespace Jumia_Clone.Controllers
         // PUT: api/Subcategory/{subcategoryId}
         // Update an existing subcategory
         [HttpPut("{subcategoryId}")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
         {
             try

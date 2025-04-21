@@ -16,6 +16,6 @@ namespace Jumia_Clone.Models.DTOs.ProductVariantDTOs2
         public string VariantImageUrl { get; set; }
         public bool IsDefault { get; set; }
         public bool IsAvailable { get; set; }
-        public List<VariantAttributeDto> Attributes { get; set; }
+        public List<ProductVariantAttributeDto> Attributes { get; set; }
     }
 }

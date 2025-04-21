@@ -38,6 +38,7 @@ namespace Jumia_Clone.Repositories.Implementation
             return subcategories ?? new List<Subcategorydto>(); // Return an empty list if null
         }
         //Get All Subcategories
+
         public async Task<IEnumerable<Subcategorydto>> GetAllSubcategoriesAsync(PaginationDto pagination, bool includeInactive)
         {
             var query = _context.SubCategories
@@ -45,7 +46,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 .AsQueryable();
 
             var pagedSubcategories = await query
-                .Skip(pagination.PageSize * pagination.PageNumber)
+                .Skip(pagination.PageSize  * (pagination.PageNumber-1))
                 .Take(pagination.PageSize)
                 .Select(sc => new Subcategorydto
                 {
@@ -61,7 +62,10 @@ namespace Jumia_Clone.Repositories.Implementation
             return pagedSubcategories;
         }
 
-
+        public async Task<int> GetCountAsync()
+        {
+            return await _context.SubCategories.CountAsync();
+        }
         // Create Subcategory
         public async Task<Subcategorydto> CreateSubcategory(CreateSubcategoryDto subcategoryDto)
         {

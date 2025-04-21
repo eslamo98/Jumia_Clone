@@ -133,5 +133,42 @@ namespace Jumia_Clone.Services.Implementation
 
             return sanitized.ToLower();
         }
+
+        public async Task<string> SaveImageFromStreamAsync(Stream imageStream, EntityType entityType, string entityName)
+        {
+            if (imageStream == null || imageStream.Length == 0)
+            {
+                throw new ArgumentException("No image stream provided");
+            }
+
+            // Create directory structure if it doesn't exist
+            // First level: entity type folder (e.g., Products, Categories)
+            string entityTypeFolder = entityType.ToString() + "s"; // Add 's' to make it plural
+
+            // Second level: specific entity folder (e.g., product-name)
+            string sanitizedEntityName = SanitizeFileName(entityName);
+
+            // Combined path: Images/Products/product-name/
+            string directoryPath = Path.Combine("Images", entityTypeFolder, sanitizedEntityName);
+
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            // Create filename using GUID + extension
+            string fileName = $"{Guid.NewGuid()}.jpg";
+            string filePath = Path.Combine(directoryPath, fileName);
+
+            // Save the image to the file system
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                imageStream.Position = 0; // Reset stream position
+                await imageStream.CopyToAsync(fileStream);
+            }
+
+            // Return the relative path to be stored in the database
+            return Path.Combine(_imagesFolder, entityTypeFolder, sanitizedEntityName, fileName);
+        }
     }
 }

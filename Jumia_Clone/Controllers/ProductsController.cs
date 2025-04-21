@@ -6,7 +6,6 @@ using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 using Jumia_Clone.Models.Enums;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -235,131 +234,158 @@ namespace Jumia_Clone.Controllers
             }
         }
         [HttpPost()]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Create([FromForm] CreateProductInputDto productDto)
+[Consumes("multipart/form-data")]
+public async Task<IActionResult> Create([FromForm] CreateProductInputDto productDto)
+{
+    if (!ModelState.IsValid)
+    {
+        return BadRequest(new ApiErrorResponse
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new ApiErrorResponse
-                {
-                    Message = "Invalid product data",
-                    ErrorMessages = ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage)
-                        .ToArray()
-                });
-            }
+            Message = "Invalid product data",
+            ErrorMessages = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToArray()
+        });
+    }
+    try
+    {
+        // Process attribute values JSON
+        if (!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
+        {
             try
             {
-                // Process attribute values JSON
-                if (!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
+                if (productDto.ProductAttributeValuesJson.StartsWith("'"))
                 {
-                    try
-                    {
-                        if (productDto.ProductAttributeValuesJson.StartsWith("'"))
-                        {
-                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(1);
-                        }
-                        if (productDto.ProductAttributeValuesJson.EndsWith("'"))
-                        {
-                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length - 1);
-                        }
-                        productDto.AttributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(productDto.ProductAttributeValuesJson);
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
+                    productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(1);
                 }
-
-                // Process product variants JSON
-                if (productDto.HasVariants && !string.IsNullOrEmpty(productDto.ProductVariantsJson))
+                if (productDto.ProductAttributeValuesJson.EndsWith("'"))
                 {
-                    try
-                    {
-                        if (productDto.ProductVariantsJson.StartsWith("'"))
-                        {
-                            productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(1);
-                        }
-                        if (productDto.ProductVariantsJson.EndsWith("'"))
-                        {
-                            productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(0, productDto.ProductVariantsJson.Length - 1);
-                        }
-                        productDto.Variants = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductVariantDto>>(productDto.ProductVariantsJson);
-
-                        // Validate at least one variant is marked as default
-                        if (!productDto.Variants.Any(v => v.IsDefault))
-                        {
-                            return BadRequest(new ApiErrorResponse
-                            {
-                                Message = "At least one variant must be marked as default",
-                                ErrorMessages = new string[] { "No default variant specified" }
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        return BadRequest(new ApiErrorResponse
-                        {
-                            Message = "Invalid product variants data",
-                            ErrorMessages = new string[] { ex.Message }
-                        });
-                    }
+                    productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length - 1);
                 }
-
-                // Check if user is admin for auto-approval
-                bool isAdmin = User.IsInRole("Admin");
-
-                // Create the product
-                var createdProduct = await _productRepository.CreateProductAsync(productDto, isAdmin);
-
-                // Handle main image upload if provided
-                if (productDto.MainImageFile != null && productDto.MainImageFile.Length > 0)
-                {
-                    string entityName = $"{createdProduct.Name}-{createdProduct.ProductId}";
-                    string imagePath = await _imageService.SaveImageAsync(
-                        productDto.MainImageFile,
-                        EntityType.Product,
-                        entityName
-                    );
-                    // Update the product with the image path
-                    createdProduct = await _productRepository.UpdateProductMainImageAsync(
-                        createdProduct.ProductId,
-                        imagePath
-                    );
-                    // Add the image URL to the response
-                    createdProduct.MainImageUrl = _imageService.GetImageUrl(imagePath);
-                }
-
-                return CreatedAtAction(
-                    nameof(GetById),
-                    new { id = createdProduct.ProductId },
-                    new ApiResponse<ProductDto>
-                    {
-                        Data = createdProduct,
-                        Message = isAdmin ? "Product created and approved successfully" : "Product created successfully (pending approval)",
-                        Success = true
-                    }
-                );
+                productDto.AttributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(productDto.ProductAttributeValuesJson);
             }
-            catch (DbUpdateException ex)
+            catch (Exception)
             {
-                return StatusCode(500, new ApiErrorResponse
+                throw;
+            }
+        }
+
+        // Process product variants JSON
+        if (productDto.HasVariants && !string.IsNullOrEmpty(productDto.ProductVariantsJson))
+        {
+            try
+            {
+                if (productDto.ProductVariantsJson.StartsWith("'"))
                 {
-                    Message = "An error occurred in the database while creating the product",
-                    ErrorMessages = new string[] { ex.Message }
-                });
+                    productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(1);
+                }
+                if (productDto.ProductVariantsJson.EndsWith("'"))
+                {
+                    productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(0, productDto.ProductVariantsJson.Length - 1);
+                }
+                productDto.Variants = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductBaseVariantDto>>(productDto.ProductVariantsJson);
+
+                // Validate at least one variant is marked as default
+                if (!productDto.Variants.Any(v => v.IsDefault))
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "At least one variant must be marked as default",
+                        ErrorMessages = new string[] { "No default variant specified" }
+                    });
+                }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiErrorResponse
+                return BadRequest(new ApiErrorResponse
                 {
-                    Message = "An error occurred while creating the product",
+                    Message = "Invalid product variants data",
                     ErrorMessages = new string[] { ex.Message }
                 });
             }
         }
 
+        // Check if user is admin for auto-approval
+        bool isAdmin = User.IsInRole("Admin");
+
+        // Create the product
+        var createdProduct = await _productRepository.CreateProductAsync(productDto, isAdmin);
+
+        // Handle main image upload if provided
+        if (productDto.MainImageFile != null && productDto.MainImageFile.Length > 0)
+        {
+            string entityName = $"{createdProduct.Name}-{createdProduct.ProductId}";
+            string imagePath = await _imageService.SaveImageAsync(
+                productDto.MainImageFile,
+                EntityType.Product,
+                entityName
+            );
+            // Update the product with the image path
+            createdProduct = await _productRepository.UpdateProductMainImageAsync(
+                createdProduct.ProductId,
+                imagePath
+            );
+            // Add the image URL to the response
+            createdProduct.MainImageUrl = _imageService.GetImageUrl(imagePath);
+        }
+
+        // Handle additional product images if provided
+        if (productDto.AdditionalImageFiles != null && productDto.AdditionalImageFiles.Any())
+        {
+            // Get the product image repository from DI
+            var productImageRepository = HttpContext.RequestServices.GetRequiredService<IProductImageRepository>();
+            
+            var createProductImageDto = new Models.DTOs.ProductImageDTOs.CreateProductImageDto
+            {
+                ProductId = createdProduct.ProductId,
+                ImageFiles = productDto.AdditionalImageFiles
+            };
+            
+            // Save the additional images
+            await productImageRepository.AddProductImagesAsync(createProductImageDto);
+            
+            // Refresh the product to include the newly added images
+            createdProduct = await _productRepository.GetProductByIdAsync(createdProduct.ProductId, true);
+            
+            // Convert image URLs for the response
+            if (createdProduct.Images != null)
+            {
+                foreach (var image in createdProduct.Images)
+                {
+                    image.ImageUrl = _imageService.GetImageUrl(image.ImageUrl);
+                }
+            }
+        }
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = createdProduct.ProductId },
+            new ApiResponse<ProductDto>
+            {
+                Data = createdProduct,
+                Message = isAdmin ? "Product created and approved successfully" : "Product created successfully (pending approval)",
+                Success = true
+            }
+        );
+    }
+    catch (DbUpdateException ex)
+    {
+        return StatusCode(500, new ApiErrorResponse
+        {
+            Message = "An error occurred in the database while creating the product",
+            ErrorMessages = new string[] { ex.Message }
+        });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new ApiErrorResponse
+        {
+            Message = "An error occurred while creating the product",
+            ErrorMessages = new string[] { ex.Message }
+        });
+    }
+}
         // PUT: api/products/{id}
         [HttpPut("{id}")]
         [Consumes("multipart/form-data")]
