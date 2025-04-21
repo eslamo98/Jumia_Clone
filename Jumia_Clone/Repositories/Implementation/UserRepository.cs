@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
 using Jumia_Clone.Data;
+using Jumia_Clone.Helpers;
+using Jumia_Clone.Models.Constants;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.UserDTOs;
 using Jumia_Clone.Models.Entities;
@@ -182,13 +184,13 @@ namespace Jumia_Clone.Repositories.Implementation
                         return false;
 
                     // Verify current password
-                    if (!VerifyPasswordHash(currentPassword, user.PasswordHash))
+                    if (!PasswordHelpers.VerifyPassword(currentPassword, user.PasswordHash))
                     {
                         return false; // Current password is incorrect
                     }
 
                     // Update password
-                    user.PasswordHash = HashPassword(newPassword);
+                    user.PasswordHash = PasswordHelpers.HashPassword(newPassword);
                     user.UpdatedAt = DateTime.UtcNow;
                     _context.Entry(user).State = EntityState.Modified;
                     await _context.SaveChangesAsync();
@@ -369,13 +371,13 @@ namespace Jumia_Clone.Repositories.Implementation
                     var user = new User
                     {
                         Email = registrationDto.Email,
-                        PasswordHash = HashPassword(registrationDto.Password),
+                        PasswordHash = PasswordHelpers.HashPassword(registrationDto.Password),
                         FirstName = registrationDto.FirstName,
                         LastName = registrationDto.LastName,
                         PhoneNumber = registrationDto.PhoneNumber,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        UserType = "Customer",
+                        UserType = UserRoles.Customer,
                         IsActive = true
                         // ProfileImageUrl can be added if your User entity has this property
                     };
@@ -604,13 +606,13 @@ namespace Jumia_Clone.Repositories.Implementation
                     var user = new User
                     {
                         Email = registrationDto.Email,
-                        PasswordHash = HashPassword(registrationDto.Password),
+                        PasswordHash = PasswordHelpers.HashPassword(registrationDto.Password),
                         FirstName = registrationDto.FirstName,
                         LastName = registrationDto.LastName,
                         PhoneNumber = registrationDto.PhoneNumber,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        UserType = "Seller",
+                        UserType = UserRoles.Seller,
                         IsActive = true
                         // ProfileImageUrl can be added if your User entity has this property
                     };
@@ -763,6 +765,26 @@ namespace Jumia_Clone.Repositories.Implementation
                 }
             }
 
+            public async Task<IEnumerable<BasicSellerInfoDto>> GetBasicSellersInfo()
+            {
+                try
+                {
+                    return await _context.Sellers
+                        .Where(s => s.User.IsActive == true)
+                        .Select(s => new BasicSellerInfoDto
+                        {
+                            SellerId = s.SellerId,
+                            Name = s.User.FirstName + " " + s.User.LastName
+                        })
+                        .ToListAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error getting basic sellers information");
+                    throw;
+                }
+            }
+
             #endregion
 
             #region Admin Methods
@@ -879,13 +901,13 @@ namespace Jumia_Clone.Repositories.Implementation
                     var user = new User
                     {
                         Email = creationDto.Email,
-                        PasswordHash = HashPassword(creationDto.Password),
+                        PasswordHash = PasswordHelpers.HashPassword(creationDto.Password),
                         FirstName = creationDto.FirstName,
                         LastName = creationDto.LastName,
                         PhoneNumber = creationDto.PhoneNumber,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                        UserType = "Admin",
+                        UserType = UserRoles.Admin,
                         IsActive = true,
                         ProfileImageUrl = imagePath
                     };
@@ -994,26 +1016,6 @@ namespace Jumia_Clone.Repositories.Implementation
                     _logger.LogError(ex, "Error updating admin {UserId}", updateDto.UserId);
                     throw;
                 }
-            }
-
-            #endregion
-
-            #region Helper Methods
-
-            private string HashPassword(string password)
-            {
-                // For production, consider using a more secure password hashing mechanism
-                // like BCrypt.Net, Identity PasswordHasher, or similar
-                using var sha256 = SHA256.Create();
-                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(hashedBytes);
-            }
-
-            private bool VerifyPasswordHash(string password, string storedHash)
-            {
-                // Compute hash of provided password and compare with stored hash
-                string computedHash = HashPassword(password);
-                return storedHash.Equals(computedHash);
             }
 
             #endregion

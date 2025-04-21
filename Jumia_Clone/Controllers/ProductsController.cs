@@ -1,4 +1,5 @@
-﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
+﻿using Jumia_Clone.Models.Constants;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
@@ -26,14 +27,13 @@ namespace Jumia_Clone.Controllers
         }
 
         // GET: api/products
-        [Authorize(Roles = "Admin,seller,customer")]
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] PaginationDto pagination, [FromQuery] ProductFilterDto filter)
         {
             try
             {
                 // If not an admin, enforce approved status
-                if (!User.IsInRole("Admin") )
+                if (!User.IsInRole($"{UserRoles.Admin}"))
                 {
                     // Ensure only approved products are retrieved for non-admin users
                     filter ??= new ProductFilterDto();
@@ -59,7 +59,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 var products = await _productRepository.GetAllProductsAsync(pagination, filter);
-
+                var totalItems = await _productRepository.GetProductsCount();
                 // Convert image paths to URLs
                 foreach (var product in products)
                 {
@@ -81,10 +81,14 @@ namespace Jumia_Clone.Controllers
                     }
                 }
 
-                return Ok(new ApiResponse<IEnumerable<ProductDto>>
+                return Ok(new
                 {
                     Message = "Successfully retrieved products",
-                    Data = products,
+                    Data = new
+                    {
+                        products = products,
+                        totalItems = totalItems,
+                    },
                     Success = true
                 });
             }
@@ -245,10 +249,10 @@ namespace Jumia_Clone.Controllers
                         .ToArray()
                 });
             }
-
             try
             {
-               if(!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
+                // Process attribute values JSON
+                if (!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
                 {
                     try
                     {
@@ -258,20 +262,56 @@ namespace Jumia_Clone.Controllers
                         }
                         if (productDto.ProductAttributeValuesJson.EndsWith("'"))
                         {
-                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length -1);
+                            productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length - 1);
                         }
-
                         productDto.AttributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(productDto.ProductAttributeValuesJson);
                     }
                     catch (Exception)
                     {
-
                         throw;
                     }
                 }
 
+                // Process product variants JSON
+                if (productDto.HasVariants && !string.IsNullOrEmpty(productDto.ProductVariantsJson))
+                {
+                    try
+                    {
+                        if (productDto.ProductVariantsJson.StartsWith("'"))
+                        {
+                            productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(1);
+                        }
+                        if (productDto.ProductVariantsJson.EndsWith("'"))
+                        {
+                            productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(0, productDto.ProductVariantsJson.Length - 1);
+                        }
+                        productDto.Variants = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductVariantDto>>(productDto.ProductVariantsJson);
+
+                        // Validate at least one variant is marked as default
+                        if (!productDto.Variants.Any(v => v.IsDefault))
+                        {
+                            return BadRequest(new ApiErrorResponse
+                            {
+                                Message = "At least one variant must be marked as default",
+                                ErrorMessages = new string[] { "No default variant specified" }
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        return BadRequest(new ApiErrorResponse
+                        {
+                            Message = "Invalid product variants data",
+                            ErrorMessages = new string[] { ex.Message }
+                        });
+                    }
+                }
+
+                // Check if user is admin for auto-approval
+                bool isAdmin = User.IsInRole("Admin");
+
                 // Create the product
-                var createdProduct = await _productRepository.CreateProductAsync(productDto);
+                var createdProduct = await _productRepository.CreateProductAsync(productDto, isAdmin);
 
                 // Handle main image upload if provided
                 if (productDto.MainImageFile != null && productDto.MainImageFile.Length > 0)
@@ -282,13 +322,11 @@ namespace Jumia_Clone.Controllers
                         EntityType.Product,
                         entityName
                     );
-
                     // Update the product with the image path
                     createdProduct = await _productRepository.UpdateProductMainImageAsync(
                         createdProduct.ProductId,
                         imagePath
                     );
-
                     // Add the image URL to the response
                     createdProduct.MainImageUrl = _imageService.GetImageUrl(imagePath);
                 }
@@ -299,7 +337,7 @@ namespace Jumia_Clone.Controllers
                     new ApiResponse<ProductDto>
                     {
                         Data = createdProduct,
-                        Message = "Product created successfully (pending approval)",
+                        Message = isAdmin ? "Product created and approved successfully" : "Product created successfully (pending approval)",
                         Success = true
                     }
                 );
@@ -362,7 +400,7 @@ namespace Jumia_Clone.Controllers
                     });
                 }
 
-               
+
 
                 // Update basic product info
                 var updatedProduct = await _productRepository.UpdateProductAsync(id, productDto);

@@ -15,10 +15,13 @@ namespace Jumia_Clone.Models.DTOs.ProductDTOs
         public int SellerId { get; set; }
         public IFormFile MainImageFile { get; set; }
         public string ProductAttributeValuesJson { get; set; }
-        //public string ProductVariantsJson { get; set; }
+        public string ProductVariantsJson { get; set; }
+        public bool HasVariants { get; set; }
+
         [JsonIgnore]
         public List<CreateProductAttributeValueDto> AttributeValues { get; set; }
-        //[JsonIgnore]
-        //public List<CreateProductVariantDto> Variants { get; set; }
+
+        [JsonIgnore]
+        public List<CreateProductVariantDto> Variants { get; set; }
     }
 }

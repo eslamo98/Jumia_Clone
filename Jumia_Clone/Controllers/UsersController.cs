@@ -10,6 +10,7 @@ using Jumia_Clone.Models.Enums;
 using System.Security.Claims;
 using AutoMapper;
 using Jumia_Clone.Helpers;
+using Jumia_Clone.Models.Constants;
 
 namespace Jumia_Clone.Controllers
 {
@@ -53,7 +54,7 @@ namespace Jumia_Clone.Controllers
 
         private bool IsAdmin()
         {
-            return User.IsInRole("Admin");
+            return User.IsInRole(UserRoles.Admin);
         }
 
         private void InvalidateUserCache(int userId, string userType = null)
@@ -577,6 +578,46 @@ namespace Jumia_Clone.Controllers
         #endregion
 
         #region Seller Endpoints
+
+        // GET: api/users/sellers/basic-info
+        [HttpGet("sellers/basic-info")]
+        [EnableRateLimiting("standard")]
+        [ResponseCache(Duration = 60)]
+        public async Task<IActionResult> GetBasicSellersInfo()
+        {
+            try
+            {
+                var cacheKey = "sellers_basic_info";
+                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<BasicSellerInfoDto>> cachedResult))
+                {
+                    return Ok(cachedResult);
+                }
+
+                var sellers = await _userRepository.GetBasicSellersInfo();
+                var response = new ApiResponse<IEnumerable<BasicSellerInfoDto>>
+                {
+                    Message = "Successfully retrieved basic sellers information",
+                    Data = sellers,
+                    Success = true
+                };
+
+                var cacheEntryOptions = new MemoryCacheEntryOptions()
+                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+
+                _cache.Set(cacheKey, response, cacheEntryOptions);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving basic sellers information");
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while retrieving basic sellers information",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
 
         // GET: api/users/sellers
         [HttpGet("sellers")]

@@ -27,35 +27,7 @@ namespace Jumia_Clone.Repositories.Implementation
             _context = context;
         }
 
-        public async Task<IEnumerable<AdminProductReviewdto>> GetAllAdminProductReviews(PaginationDto pagination)
-        {
-            //var query = _context.AdminProductReview.AsQueryable();
-            //
-            //if (pagination != null)
-            //{
-            //    query = query
-            //        .Skip((pagination.PageNumber - 1) * pagination.PageSize)
-            //        .Take(pagination.PageSize);
-            //}
-            //
-            //var adminProductReviews = await query
-            //    .Select(r => new AdminProductReviewdto
-            //    {
-            //        ReviewId = r.ReviewId,
-            //        ProductId = r.ProductId,
-            //        AdminId = r.AdminId,
-            //        PreviousStatus = r.PreviousStatus,
-            //        NewStatus = r.NewStatus,
-            //        Notes = r.Notes,
-            //        ReviewedAt = r.ReviewedAt
-            //    })
-            //    .ToListAsync();
-            //
-            //return adminProductReviews ?? new List<AdminProductReviewdto>();
-
-            throw new NotImplementedException();
-        }
-
+      
         public async Task<IEnumerable<Admindto>> GetAllAdmins(PaginationDto pagination)
         {
             var query = _context.Admins.AsQueryable();

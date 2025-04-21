@@ -175,7 +175,7 @@ namespace Jumia_Clone.Configuration
             app.UseCors("CorsPolicy");
 
             // Use Rate Limiter
-            app.UseRateLimiter();
+            //app.UseRateLimiter();
 
             // This order is important!
             app.UseAuthentication(); // Must come before UseAuthorization
