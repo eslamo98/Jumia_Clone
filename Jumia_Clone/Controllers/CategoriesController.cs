@@ -28,7 +28,7 @@ namespace Jumia_Clone.Controllers
             try
             {
                 var categories = await _categoryRepository.GetAllCategoriesAsync(pagination, include_inactive);
-
+                var totalItems = await _categoryRepository.GetCount();
                 // Convert image paths to URLs if any
                 foreach (var category in categories)
                 {
@@ -38,10 +38,45 @@ namespace Jumia_Clone.Controllers
                     }
                 }
 
-                return Ok(new ApiResponse<IEnumerable<CategoryDto>>
+                return Ok(new
                 {
                     Message = "Successfully retrieved all categories",
                     Data = categories,
+                    totalItems = totalItems,
+                    Success = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse()
+                {
+                    Message = "An error occurred while retrieving categories",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        [HttpGet("Search")]
+        public async Task<IActionResult> Search([FromQuery] string searchTerm, [FromQuery] bool include_inactive = false)
+        {
+            try
+            {
+                var categories = await _categoryRepository.SearchCategoriesAsync(searchTerm, include_inactive);
+                var totalItems = await _categoryRepository.GetCount();
+                // Convert image paths to URLs if any
+                foreach (var category in categories)
+                {
+                    if (!string.IsNullOrEmpty(category.ImageUrl))
+                    {
+                        category.ImageUrl = _imageService.GetImageUrl(category.ImageUrl);
+                    }
+                }
+
+                return Ok(new
+                {
+                    Message = "Successfully retrieved all categories",
+                    Data = categories,
+                    totalItems = totalItems,
                     Success = true
                 });
             }
@@ -152,10 +187,7 @@ namespace Jumia_Clone.Controllers
                         entityName
                     );
 
-                    // Create a model for database update that includes the image path
-                    // Note: We have to create a temporary update model here because
-                    // UpdateCategoryInputDto doesn't have an explicit ImageUrl property
-                    // The repository will map this to the appropriate DB column
+          
                     var dbUpdateModel = new
                     {
                         CategoryId = createdCategory.CategoryId,
