@@ -8,6 +8,7 @@ using Jumia_Clone.Models.DTOs.ProductImageDTOs;
 using Jumia_Clone.Models.DTOs.ProductVariantDTOs2;
 using Jumia_Clone.Models.DTOs.VariantAttributeDTOs;
 using Jumia_Clone.Models.Entities;
+using Jumia_Clone.Models.Enums;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -188,45 +189,85 @@ namespace Jumia_Clone.Repositories.Implementation
                 }
 
                 // Process variants if any
-                if (productDto.HasVariants && productDto.Variants != null && productDto.Variants.Any())
+                // Process variants if any
+if (productDto.HasVariants && productDto.Variants != null && productDto.Variants.Any())
+{
+    foreach (var variantDto in productDto.Variants)
+    {
+        var variant = new ProductVariant
+        {
+            ProductId = product.ProductId,
+            VariantName = variantDto.VariantName,
+            Price = variantDto.Price,
+            DiscountPercentage = variantDto.DiscountPercentage,
+            StockQuantity = variantDto.StockQuantity,
+            Sku = variantDto.Sku,
+            IsDefault = variantDto.IsDefault,
+            IsAvailable = true,
+            VariantImageUrl = "" // Will be updated below if image is provided
+        };
+
+        _context.ProductVariants.Add(variant);
+        await _context.SaveChangesAsync();
+
+        // Handle variant image if provided as base64
+        if (!string.IsNullOrEmpty(variantDto.VariantImageBase64))
+        {
+            try
+            {
+                // Extract base64 data (remove data:image/jpeg;base64, prefix if present)
+                string base64Data = variantDto.VariantImageBase64;
+                if (base64Data.Contains(","))
                 {
-                    foreach (var variantDto in productDto.Variants)
-                    {
-                        var variant = new ProductVariant
-                        {
-                            ProductId = product.ProductId,
-                            VariantName = variantDto.VariantName,
-                            Price = variantDto.Price,
-                            DiscountPercentage = variantDto.DiscountPercentage,
-                            StockQuantity = variantDto.StockQuantity,
-                            Sku = variantDto.Sku,
-                            IsDefault = variantDto.IsDefault,
-                            IsAvailable = true,
-                            VariantImageUrl = "" // Will be updated later when images are uploaded
-                        };
-
-                        _context.ProductVariants.Add(variant);
-                        await _context.SaveChangesAsync();
-
-                        // Add variant attributes
-                        if (variantDto.VariantAttributes != null && variantDto.VariantAttributes.Any())
-                        {
-                            foreach (var attrDto in variantDto.VariantAttributes)
-                            {
-                                var variantAttribute = new VariantAttribute
-                                {
-                                    VariantId = variant.VariantId,
-                                    AttributeName = attrDto.AttributeName,
-                                    AttributeValue = attrDto.AttributeValue
-                                };
-
-                                _context.VariantAttributes.Add(variantAttribute);
-                            }
-                            await _context.SaveChangesAsync();
-                        }
-                    }
+                    base64Data = base64Data.Substring(base64Data.IndexOf(",") + 1);
                 }
 
+                // Convert base64 to byte array
+                byte[] imageBytes = Convert.FromBase64String(base64Data);
+
+                // Create a memory stream from the byte array
+                using var memoryStream = new MemoryStream(imageBytes);
+                
+                // Create a unique name for the variant image
+                string entityName = $"{product.Name}-variant-{variant.VariantId}";
+                
+                // Save the image using the image service
+                string imagePath = await _imageService.SaveImageFromStreamAsync(
+                    memoryStream,
+                    EntityType.ProductVariant,
+                    entityName
+                );
+                
+                // Update the variant with the image path
+                variant.VariantImageUrl = imagePath;
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log the error but continue processing
+                Console.WriteLine($"Error saving variant image: {ex.Message}");
+                // You might want to use a proper logging mechanism here
+            }
+        }
+
+        // Add variant attributes
+        if (variantDto.VariantAttributes != null && variantDto.VariantAttributes.Any())
+        {
+            foreach (var attrDto in variantDto.VariantAttributes)
+            {
+                var variantAttribute = new VariantAttribute
+                {
+                    VariantId = variant.VariantId,
+                    AttributeName = attrDto.AttributeName,
+                    AttributeValue = attrDto.AttributeValue
+                };
+
+                _context.VariantAttributes.Add(variantAttribute);
+            }
+            await _context.SaveChangesAsync();
+        }
+    }
+}
                 await transaction.CommitAsync();
 
                 // Return the created product
@@ -1235,7 +1276,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 VariantImageUrl = variant.VariantImageUrl,
                 IsDefault = variant.IsDefault ?? false,
                 IsAvailable = variant.IsAvailable ?? false,
-                Attributes = variant.VariantAttributes?.Select(va => new Jumia_Clone.Models.DTOs.ProductDTOs.VariantAttributeDto
+                Attributes = variant.VariantAttributes?.Select(va => new Jumia_Clone.Models.DTOs.ProductDTOs.ProductVariantAttributeDto
                 {
                     VariantAttributeId = va.VariantAttributeId,
                     VariantId = va.VariantId,

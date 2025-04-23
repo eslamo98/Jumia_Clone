@@ -10,6 +10,8 @@ namespace Jumia_Clone.Models.DTOs.CategoryDTO
         public string ImageUrl { get; set; }
         public bool IsActive { get; set; }
         public int SubcategoryCount { get; set; }
+        public int ProductCount { get; set; }
+        public string Status { get => this.IsActive ? "Active" : "InActive"; set => this.Status = value; }
         [JsonIgnore]
         public IFormFile ImageFile { get; set; }
         

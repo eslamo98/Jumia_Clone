@@ -1,6 +1,6 @@
 ﻿namespace Jumia_Clone.Models.DTOs.ProductDTOs
 {
-    public class VariantAttributeDto
+    public class ProductVariantAttributeDto
     {
         public int VariantAttributeId { get; set; }
         public int VariantId { get; set; }

@@ -12,5 +12,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<CategoryDto> UpdateCategoryImageAsync(int id, string imagePath);
         Task DeleteCategoryAsync(int id);
         Task<IEnumerable<CategoryBasicInfoDto>> GetBasicInfo();
+        public Task<IEnumerable<CategoryDto>> SearchCategoriesAsync(string searchTerm, bool includeInactive = false);
+
+        Task<int> GetCount();
     }
 }

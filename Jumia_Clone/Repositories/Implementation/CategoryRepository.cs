@@ -17,10 +17,14 @@ namespace Jumia_Clone.Repositories.Implementation
             _context = context;
         }
 
+        public async Task<int> GetCount()
+        {
+            return await _context.Categories.CountAsync();
+        }
         // Get all categories
         public async Task<IEnumerable<CategoryDto>> GetAllCategoriesAsync(PaginationDto pagination, bool includeInactive = false)
         {
-            var categories = await _context.Categories.Skip(pagination.PageSize * pagination.PageNumber).Take(pagination.PageSize)
+            var categories = await _context.Categories.Skip(pagination.PageSize  * (pagination.PageNumber - 1)).Take(pagination.PageSize)
                 .Where(c => includeInactive || c.IsActive == true)
                 .Select(c => new CategoryDto
                 {
@@ -28,12 +32,36 @@ namespace Jumia_Clone.Repositories.Implementation
                     Name = c.Name,
                     Description = c.Description,
                     ImageUrl = c.ImageUrl, // Map DB ImageUrl to DTO ImageUrl
+                    ProductCount = c.SubCategories.Sum(sc => sc.Products.Count),
                     IsActive = c.IsActive ?? false,
                     SubcategoryCount = c.SubCategories.Count(sc => includeInactive || sc.IsActive == true)
                 })
                 .ToListAsync();
             return categories;
         }
+
+        public async Task<IEnumerable<CategoryDto>> SearchCategoriesAsync(string searchTerm, bool includeInactive = false)
+        {
+            var categories = await _context.Categories
+                .Where(c =>
+                    (includeInactive || c.IsActive == true) &&
+                    (string.IsNullOrEmpty(searchTerm) || c.Name.Contains(searchTerm) || c.Description.Contains(searchTerm)))
+                
+                .Select(c => new CategoryDto
+                {
+                    CategoryId = c.CategoryId,
+                    Name = c.Name,
+                    Description = c.Description,
+                    ImageUrl = c.ImageUrl,
+                    ProductCount = c.SubCategories.Sum(sc => sc.Products.Count),
+                    IsActive = c.IsActive ?? false,
+                    SubcategoryCount = c.SubCategories.Count(sc => includeInactive || sc.IsActive == true)
+                })
+                .ToListAsync();
+
+            return categories;
+        }
+
 
         // Get a category by ID
         public async Task<CategoryDto> GetCategoryByIdAsync(int id)

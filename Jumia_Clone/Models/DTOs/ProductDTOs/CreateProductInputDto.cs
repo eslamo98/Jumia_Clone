@@ -14,6 +14,7 @@ namespace Jumia_Clone.Models.DTOs.ProductDTOs
         public int SubcategoryId { get; set; }
         public int SellerId { get; set; }
         public IFormFile MainImageFile { get; set; }
+        public List<IFormFile> AdditionalImageFiles { get; set; }
         public string ProductAttributeValuesJson { get; set; }
         public string ProductVariantsJson { get; set; }
         public bool HasVariants { get; set; }
@@ -22,6 +23,6 @@ namespace Jumia_Clone.Models.DTOs.ProductDTOs
         public List<CreateProductAttributeValueDto> AttributeValues { get; set; }
 
         [JsonIgnore]
-        public List<CreateProductVariantDto> Variants { get; set; }
+        public List<CreateProductBaseVariantDto> Variants { get; set; }
     }
 }

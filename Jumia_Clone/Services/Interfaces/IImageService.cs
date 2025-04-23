@@ -8,5 +8,5 @@ namespace Jumia_Clone.Services.Interfaces
         Task<bool> DeleteImageAsync(string imagePath);
         Task<string> UpdateImageAsync(IFormFile newImageFile, string oldImagePath, EntityType entityType, string name);
         string GetImageUrl(string relativePath);
-    }
+        public Task<string> SaveImageFromStreamAsync(Stream imageStream, EntityType entityType, string entityName);    }
 }

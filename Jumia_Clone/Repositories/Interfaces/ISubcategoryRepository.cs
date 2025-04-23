@@ -17,6 +17,7 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<IEnumerable<SearchSubcategoryDto>> SearchByNameOrDescription(string searchTerm, PaginationDto pagination);
         Task<IEnumerable<Subcategorydto>> GetAllSubcategoriesAsync(PaginationDto pagination, bool includeInactive);
         Task<IEnumerable<SubcategoryBasicInfoDto>> GetBasicInfo(int categoryId);
+        Task<int> GetCountAsync();
     }
 }
 
