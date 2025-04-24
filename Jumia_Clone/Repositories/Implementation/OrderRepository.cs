@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Jumia_Clone.Data;
+using Jumia_Clone.Models.Constants;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.OrderDTOs;
 using Jumia_Clone.Models.Entities;
@@ -67,7 +68,138 @@ namespace Jumia_Clone.Repositories.Implementation
                 throw;
             }
         }
+        public async Task<(bool Success, string Message)> CancelOrderAsync(int orderId, int customerId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get the order with all related data
+                var order = await _context.Orders
+                    .Include(o => o.SubOrders)
+                        .ThenInclude(so => so.OrderItems)
+                    .FirstOrDefaultAsync(o => o.OrderId == orderId );
 
+                if (order == null)
+                    return (false, "Order not found or does not belong to this customer");
+
+                // Check if order can be canceled (only pending or processing orders can be canceled)
+                if (order.OrderStatus != OrderStatus.Pending && order.OrderStatus != OrderStatus.Processing)
+                    return (false, $"Cannot cancel order with status '{order.OrderStatus}'");
+
+                // Update order status
+                order.OrderStatus = OrderStatus.Canceled;
+                order.UpdatedAt = DateTime.UtcNow;
+
+                // Update all suborders status
+                foreach (var subOrder in order.SubOrders)
+                {
+                    subOrder.Status = OrderStatus.Canceled;
+                   
+
+                    // Restore inventory for all items in this suborder
+                    await RestoreInventoryAsync(subOrder.OrderItems);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return (true, "Order canceled successfully");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error canceling order {OrderId}", orderId);
+                return (false, $"Error canceling order: {ex.Message}");
+            }
+        }
+
+        public async Task<(bool Success, string Message)> CancelSubOrderAsync(int subOrderId, int sellerId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get the suborder with all related data
+                var subOrder = await _context.SubOrders
+                    .Include(so => so.OrderItems)
+                    .Include(so => so.Order)
+                    .FirstOrDefaultAsync(so => so.SuborderId == subOrderId && so.SellerId == sellerId);
+
+                if (subOrder == null)
+                    return (false, "Suborder not found or does not belong to this seller");
+
+                // Check if suborder can be canceled (only pending or processing suborders can be canceled)
+                if (subOrder.Status != OrderStatus.Pending && subOrder.Status != OrderStatus.Processing)
+                    return (false, $"Cannot cancel suborder with status '{subOrder.Status}'");
+
+                // Update suborder status
+                subOrder.Status = OrderStatus.Canceled;
+
+                // Restore inventory for all items in this suborder
+                await RestoreInventoryAsync(subOrder.OrderItems);
+
+                // Check if all suborders are now canceled, and if so, update the main order status
+                var allSubOrders = await _context.SubOrders
+                    .Where(so => so.OrderId == subOrder.OrderId)
+                    .ToListAsync();
+
+                if (allSubOrders.All(so => so.Status == OrderStatus.Canceled))
+                {
+                    var order = await _context.Orders.FindAsync(subOrder.OrderId);
+                    if (order != null)
+                    {
+                        order.OrderStatus = OrderStatus.Canceled;
+                        order.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return (true, "Suborder canceled successfully");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error canceling suborder {SubOrderId}", subOrderId);
+                return (false, $"Error canceling suborder: {ex.Message}");
+            }
+        }
+
+        // Helper method to restore inventory when canceling orders
+        private async Task RestoreInventoryAsync(ICollection<OrderItem> orderItems)
+        {
+            foreach (var item in orderItems)
+            {
+                // If the item has a variant, restore the variant's stock
+                if (item.VariantId.HasValue)
+                {
+                    var variant = await _context.ProductVariants.FindAsync(item.VariantId.Value);
+                    if (variant != null)
+                    {
+                        variant.StockQuantity += item.Quantity;
+                        _context.Entry(variant).State = EntityState.Modified;
+                    } 
+                    if(variant.IsDefault == true)
+                    {
+                        var product = await _context.Products.FindAsync(item.ProductId);
+                        if (product != null)
+                        {
+                            product.StockQuantity += item.Quantity;
+                            _context.Entry(product).State = EntityState.Modified;
+                        }
+                    }
+                }else
+                {
+                    var product = await _context.Products.FindAsync(item.ProductId);
+                    if (product != null)
+                    {
+                        product.StockQuantity += item.Quantity;
+                        _context.Entry(product).State = EntityState.Modified;
+                    }
+                }
+
+            }
+        }
         public async Task<int> GetOrdersCountAsync()
         {
             try
@@ -157,9 +289,10 @@ namespace Jumia_Clone.Repositories.Implementation
                     TaxAmount = orderDto.TaxAmount,
                     FinalAmount = orderDto.FinalAmount,
                     PaymentMethod = orderDto.PaymentMethod,
-                    PaymentStatus = "pending", // Default status
+                    PaymentStatus = PaymentStatus.Pending, // Default status
                     AffiliateId = orderDto.AffiliateId,
                     AffiliateCode = orderDto.AffiliateCode,
+                    OrderStatus = OrderStatus.Pending,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -175,7 +308,7 @@ namespace Jumia_Clone.Repositories.Implementation
                         OrderId = order.OrderId,
                         SellerId = subOrderDto.SellerId,
                         Subtotal = subOrderDto.Subtotal,
-                        Status = "pending", // Default status
+                        Status = SubOrderStatus.Pending, // Default status
                         StatusUpdatedAt = DateTime.UtcNow
                     };
 
@@ -256,6 +389,10 @@ namespace Jumia_Clone.Repositories.Implementation
 
                 if (!string.IsNullOrEmpty(orderDto.PaymentStatus))
                     order.PaymentStatus = orderDto.PaymentStatus;
+
+                // Add this block to handle OrderStatus updates
+                if (!string.IsNullOrEmpty(orderDto.OrderStatus))
+                    order.OrderStatus = orderDto.OrderStatus;
 
                 order.UpdatedAt = DateTime.UtcNow;
 
@@ -539,10 +676,10 @@ namespace Jumia_Clone.Repositories.Implementation
                     PaymentMethod = orderDto.PaymentMethod,
                     AffiliateId = orderDto.AffiliateId,
                     AffiliateCode = orderDto.AffiliateCode,
+                    OrderItems = orderDto.OrderItems,
                     SubOrders = new List<CreateSubOrderInputDto>()
                 };
 
-                // Step 1: Validate customer and address
                 var customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerId == orderDto.CustomerId);
                 if (customer == null)
                     return (false, $"Customer with ID {orderDto.CustomerId} not found", null);
@@ -551,161 +688,194 @@ namespace Jumia_Clone.Repositories.Implementation
                 if (address == null)
                     return (false, $"Address with ID {orderDto.AddressId} not found or does not belong to the customer", null);
 
-                // Step 2: Process each sub-order and calculate subtotals
-                decimal orderSubtotal = 0;
-
-                foreach (var subOrderDto in orderDto.SubOrders)
+                // Group order items by seller
+                if (calculatedOrder.OrderItems != null && calculatedOrder.OrderItems.Count > 0)
                 {
-                    // Verify seller exists
-                    var seller = await _context.Sellers.FirstOrDefaultAsync(s => s.SellerId == subOrderDto.SellerId && s.IsVerified == true);
-                    if (seller == null)
-                        return (false, $"Seller with ID {subOrderDto.SellerId} not found or is not verified", null);
+                    // Dictionary to store items by seller ID
+                    var itemsBySeller = new Dictionary<int, List<CreateOrderItemInputDto>>();
 
-                    var calculatedSubOrder = new CreateSubOrderInputDto
+                    // Process each order item
+                    foreach (var orderItem in calculatedOrder.OrderItems)
                     {
-                        SellerId = subOrderDto.SellerId,
-                        OrderItems = new List<CreateOrderItemInputDto>(),
-                    };
-
-                    decimal subOrderTotal = 0;
-
-                    // Process each item in this sub-order
-                    foreach (var itemDto in subOrderDto.OrderItems)
-                    {
-                        // Validate product
+                        // Get product details including seller ID
                         var product = await _context.Products
-                            .FirstOrDefaultAsync(p => p.ProductId == itemDto.ProductId && p.IsAvailable == true);
+                            .FirstOrDefaultAsync(p => p.ProductId == orderItem.ProductId && p.IsAvailable == true && p.ApprovalStatus != ProductApprovalStatus.Deleted && p.ApprovalStatus != ProductApprovalStatus.Pending && p.ApprovalStatus != ProductApprovalStatus.PendingReview);
 
                         if (product == null)
-                            return (false, $"Product with ID {itemDto.ProductId} not found or is not available", null);
+                            return (false, $"Product with ID {orderItem.ProductId} not found or is not available", null);
 
-                        // Validate quantity
-                        if (product.StockQuantity < itemDto.Quantity)
-                            return (false, $"Product with ID {itemDto.ProductId} does not have enough stock. Available: {product.StockQuantity}", null);
+                        // Validate quantity for the main product
+                        if ((!orderItem.VariantId.HasValue || orderItem.VariantId == 0) && product.StockQuantity < orderItem.Quantity)
+                            return (false, $"Product with ID {orderItem.ProductId} does not have enough stock. Available: {product.StockQuantity}", null);
 
-                        // Calculate item price based on product or variant
-                        decimal itemPrice;
-
-                        if (itemDto.VariantId.HasValue)
+                        // Validate variant if specified
+                        if (orderItem.VariantId.HasValue)
                         {
                             var variant = await _context.ProductVariants
-                                .FirstOrDefaultAsync(v => v.VariantId == itemDto.VariantId &&
-                                                       v.ProductId == itemDto.ProductId &&
+                                .FirstOrDefaultAsync(v => v.VariantId == orderItem.VariantId &&
+                                                       v.ProductId == orderItem.ProductId &&
                                                        v.IsAvailable == true);
 
                             if (variant == null)
-                                return (false, $"Variant with ID {itemDto.VariantId} not found or is not available", null);
+                                return (false, $"Variant with ID {orderItem.VariantId} not found or is not available", null);
 
-                            if (variant.StockQuantity < itemDto.Quantity)
-                                return (false, $"Variant with ID {itemDto.VariantId} does not have enough stock. Available: {variant.StockQuantity}", null);
-
-                            // Calculate price with discount if applicable
-                            itemPrice = variant.Price;
-                            if (variant.DiscountPercentage.HasValue && variant.DiscountPercentage > 0)
-                            {
-                                itemPrice = itemPrice - (itemPrice * variant.DiscountPercentage.Value / 100);
-                            }
-                        }
-                        else
-                        {
-                            // Calculate price with discount if applicable
-                            itemPrice = product.BasePrice;
-                            if (product.DiscountPercentage.HasValue && product.DiscountPercentage > 0)
-                            {
-                                itemPrice = itemPrice - (itemPrice * product.DiscountPercentage.Value / 100);
-                            }
+                            if (variant.StockQuantity < orderItem.Quantity)
+                                return (false, $"Variant with ID {orderItem.VariantId} does not have enough stock. Available: {variant.StockQuantity}", null);
                         }
 
-                        // Round to 2 decimal places
-                        itemPrice = Math.Round(itemPrice, 2);
+                        // Get seller ID
+                        int sellerId = product.SellerId;
 
-                        // Calculate total for this item
-                        decimal itemTotal = itemPrice * itemDto.Quantity;
+                        // Verify seller exists and is verified
+                        var seller = await _context.Sellers.FirstOrDefaultAsync(s => s.SellerId == sellerId && s.IsVerified == true);
+                        if (seller == null)
+                            return (false, $"Seller with ID {sellerId} not found or is not verified", null);
 
-                        // Add to sub-order total
-                        subOrderTotal += itemTotal;
-
-                        // Create calculated order item
-                        var calculatedItem = new CreateOrderItemInputDto
+                        // Add item to the appropriate seller group
+                        if (!itemsBySeller.ContainsKey(sellerId))
                         {
-                            ProductId = itemDto.ProductId,
-                            Quantity = itemDto.Quantity,
-                            PriceAtPurchase = itemPrice,
-                            TotalPrice = itemTotal,
-                            VariantId = itemDto.VariantId
+                            itemsBySeller[sellerId] = new List<CreateOrderItemInputDto>();
+                        }
+
+                        itemsBySeller[sellerId].Add(orderItem);
+                    }
+
+                    // Create sub-orders from the grouped items
+                    decimal orderSubtotal = 0;
+
+                    foreach (var sellerGroup in itemsBySeller)
+                    {
+                        int sellerId = sellerGroup.Key;
+                        var items = sellerGroup.Value;
+
+                        var calculatedSubOrder = new CreateSubOrderInputDto
+                        {
+                            SellerId = sellerId,
+                            OrderItems = new List<CreateOrderItemInputDto>(),
                         };
 
-                        calculatedSubOrder.OrderItems.Add(calculatedItem);
+                        decimal subOrderTotal = 0;
+
+                        // Process each item in this seller group
+                        foreach (var itemDto in items)
+                        {
+                            var product = await _context.Products.FindAsync(itemDto.ProductId);
+
+                            // Calculate item price based on product or variant
+                            decimal itemPrice;
+
+                            if (itemDto.VariantId.HasValue)
+                            {
+                                var variant = await _context.ProductVariants.FindAsync(itemDto.VariantId.Value);
+
+                                // Calculate price with discount if applicable
+                                itemPrice = variant.Price;
+                                if (variant.DiscountPercentage.HasValue && variant.DiscountPercentage > 0)
+                                {
+                                    itemPrice = itemPrice - (itemPrice * variant.DiscountPercentage.Value / 100);
+                                }
+                            }
+                            else
+                            {
+                                // Calculate price with discount if applicable
+                                itemPrice = product.BasePrice;
+                                if (product.DiscountPercentage.HasValue && product.DiscountPercentage > 0)
+                                {
+                                    itemPrice = itemPrice - (itemPrice * product.DiscountPercentage.Value / 100);
+                                }
+                            }
+
+                            // Round to 2 decimal places
+                            itemPrice = Math.Round(itemPrice, 2);
+
+                            // Calculate total for this item
+                            decimal itemTotal = itemPrice * itemDto.Quantity;
+
+                            // Add to sub-order total
+                            subOrderTotal += itemTotal;
+
+                            // Create calculated order item
+                            var calculatedItem = new CreateOrderItemInputDto
+                            {
+                                ProductId = itemDto.ProductId,
+                                Quantity = itemDto.Quantity,
+                                PriceAtPurchase = itemPrice,
+                                TotalPrice = itemTotal,
+                                VariantId = itemDto.VariantId
+                            };
+
+                            calculatedSubOrder.OrderItems.Add(calculatedItem);
+                        }
+
+                        // Set the calculated subtotal
+                        calculatedSubOrder.Subtotal = Math.Round(subOrderTotal, 2);
+                        orderSubtotal += subOrderTotal;
+
+                        calculatedOrder.SubOrders.Add(calculatedSubOrder);
                     }
 
-                    // Set the calculated subtotal
-                    calculatedSubOrder.Subtotal = Math.Round(subOrderTotal, 2);
-                    orderSubtotal += subOrderTotal;
+                    // Step 3: Calculate discount from coupon if provided
+                    decimal discountAmount = 0;
 
-                    calculatedOrder.SubOrders.Add(calculatedSubOrder);
+                    if (orderDto.CouponId.HasValue)
+                    {
+                        var coupon = await _context.Coupons
+                            .FirstOrDefaultAsync(c => c.CouponId == orderDto.CouponId && c.IsActive == true);
+
+                        if (coupon == null)
+                            return (false, $"Coupon with ID {orderDto.CouponId} not found or is not active", null);
+
+                        // Verify coupon date validity
+                        var currentDate = DateTime.UtcNow;
+                        if (currentDate < coupon.StartDate || currentDate > coupon.EndDate)
+                            return (false, "Coupon is not valid at this time", null);
+
+                        // Verify minimum purchase
+                        if (coupon.MinimumPurchase.HasValue && orderSubtotal < coupon.MinimumPurchase.Value)
+                            return (false, $"Order subtotal does not meet the minimum purchase requirement of {coupon.MinimumPurchase.Value:C} for this coupon", null);
+
+                        // Calculate discount
+                        if (coupon.DiscountType == CouponType.Fixed)
+                        {
+                            discountAmount = coupon.DiscountAmount;
+                        }
+                        else if (coupon.DiscountType == CouponType.Percentage)
+                        {
+                            discountAmount = orderSubtotal * (coupon.DiscountAmount / 100);
+                        }
+
+                        // Cap discount at the order subtotal
+                        discountAmount = Math.Min(discountAmount, orderSubtotal);
+                        discountAmount = Math.Round(discountAmount, 2);
+                    }
+
+                    // Step 4: Calculate tax and shipping
+                    decimal taxRate = 0.05m;
+                    decimal taxAmount = Math.Round(orderSubtotal * taxRate, 2);
+                    decimal shippingFee = 10.00m;
+
+                    // Reduce or eliminate shipping for larger orders
+                    if (orderSubtotal > 100)
+                        shippingFee = 5.00m;
+
+                    if (orderSubtotal > 200)
+                        shippingFee = 0.00m;
+
+                    // Step 5: Calculate final amount
+                    decimal finalAmount = orderSubtotal - discountAmount + taxAmount + shippingFee;
+                    finalAmount = Math.Round(finalAmount, 2);
+
+                    // Set all calculated values to the order
+                    calculatedOrder.TotalAmount = orderSubtotal;
+                    calculatedOrder.DiscountAmount = discountAmount;
+                    calculatedOrder.TaxAmount = taxAmount;
+                    calculatedOrder.ShippingFee = shippingFee;
+                    calculatedOrder.FinalAmount = finalAmount;
                 }
-
-                // Step 3: Calculate discount from coupon if provided
-                decimal discountAmount = 0;
-
-                if (orderDto.CouponId.HasValue)
+                else
                 {
-                    var coupon = await _context.Coupons
-                        .FirstOrDefaultAsync(c => c.CouponId == orderDto.CouponId && c.IsActive == true);
-
-                    if (coupon == null)
-                        return (false, $"Coupon with ID {orderDto.CouponId} not found or is not active", null);
-
-                    // Verify coupon date validity
-                    var currentDate = DateTime.UtcNow;
-                    if (currentDate < coupon.StartDate || currentDate > coupon.EndDate)
-                        return (false, "Coupon is not valid at this time", null);
-
-                    // Verify minimum purchase
-                    if (coupon.MinimumPurchase.HasValue && orderSubtotal < coupon.MinimumPurchase.Value)
-                        return (false, $"Order subtotal does not meet the minimum purchase requirement of {coupon.MinimumPurchase.Value:C} for this coupon", null);
-
-                    // Calculate discount
-                    if (coupon.DiscountType == "Fixed")
-                    {
-                        discountAmount = coupon.DiscountAmount;
-                    }
-                    else if (coupon.DiscountType == "Percentage")
-                    {
-                        discountAmount = orderSubtotal * (coupon.DiscountAmount / 100);
-                    }
-
-                    // Cap discount at the order subtotal
-                    discountAmount = Math.Min(discountAmount, orderSubtotal);
-                    discountAmount = Math.Round(discountAmount, 2);
+                    return (false, "No order items provided", null);
                 }
-
-                // Step 4: Calculate tax and shipping
-                // Note: This is a simplified calculation. In a real system, tax and shipping
-                // would depend on customer location, product categories, shipping methods, etc.
-                decimal taxRate = 0.05m; // 5% tax - you might want to make this configurable
-                decimal taxAmount = Math.Round(orderSubtotal * taxRate, 2);
-
-                // Base shipping fee (you might want to calculate this based on items, weight, distance, etc.)
-                decimal shippingFee = 10.00m;
-
-                // Reduce or eliminate shipping for larger orders
-                if (orderSubtotal > 100)
-                    shippingFee = 5.00m;
-
-                if (orderSubtotal > 200)
-                    shippingFee = 0.00m;
-
-                // Step 5: Calculate final amount
-                decimal finalAmount = orderSubtotal - discountAmount + taxAmount + shippingFee;
-                finalAmount = Math.Round(finalAmount, 2);
-
-                // Set all calculated values to the order
-                calculatedOrder.TotalAmount = orderSubtotal;
-                calculatedOrder.DiscountAmount = discountAmount;
-                calculatedOrder.TaxAmount = taxAmount;
-                calculatedOrder.ShippingFee = shippingFee;
-                calculatedOrder.FinalAmount = finalAmount;
 
                 return (true, string.Empty, calculatedOrder);
             }
@@ -715,7 +885,6 @@ namespace Jumia_Clone.Repositories.Implementation
                 return (false, $"Error validating order: {ex.Message}", null);
             }
         }
-
         /// <summary>
         /// Updates inventory quantities after a successful order
         /// </summary>
@@ -733,15 +902,28 @@ namespace Jumia_Clone.Repositories.Implementation
                         {
                             variant.StockQuantity -= item.Quantity;
                             _context.Entry(variant).State = EntityState.Modified;
+                        } 
+                        if(variant.IsDefault == true)
+                        {
+                            
+                            // Always update product quantity
+                            var product = await _context.Products.FindAsync(item.ProductId);
+                            if (product != null)
+                            {
+                                product.StockQuantity -= item.Quantity;
+                                _context.Entry(product).State = EntityState.Modified;
+                            }
                         }
                     }
-
-                    // Always update product quantity
-                    var product = await _context.Products.FindAsync(item.ProductId);
-                    if (product != null)
+                    else
                     {
-                        product.StockQuantity -= item.Quantity;
-                        _context.Entry(product).State = EntityState.Modified;
+                        // Always update product quantity
+                        var product = await _context.Products.FindAsync(item.ProductId);
+                        if (product != null)
+                        {
+                            product.StockQuantity -= item.Quantity;
+                            _context.Entry(product).State = EntityState.Modified;
+                        }
                     }
                 }
             }

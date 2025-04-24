@@ -8,11 +8,10 @@ namespace Jumia_Clone.Models.DTOs.OrderDTOs
         public int SellerId { get; set; }
 
         [Required]
-        [Range(0.01, double.MaxValue, ErrorMessage = "Subtotal must be greater than 0")]
-        public decimal Subtotal { get; set; }
-
-        [Required]
         public List<CreateOrderItemInputDto> OrderItems { get; set; }
+        
+        // This property will be calculated by the backend
+        public decimal Subtotal { get; set; }
     }
 
 }

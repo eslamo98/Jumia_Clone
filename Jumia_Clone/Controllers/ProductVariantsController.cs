@@ -26,20 +26,20 @@ namespace Jumia_Clone.Controllers
         private readonly IProductVariantsRepository _repository;
         private readonly IImageService _imageService;
         private readonly IProductRepository _productRepository;
-        private readonly IMemoryCache _cache;
+        //private readonly IMemoryCache _cache;
         private readonly ILogger<ProductVariantsController> _logger;
 
         public ProductVariantsController(
             IProductVariantsRepository repository,
             IImageService imageService,
             IProductRepository productRepository,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<ProductVariantsController> logger)
         {
             _repository = repository;
             _imageService = imageService;
             _productRepository = productRepository;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -66,10 +66,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variants_{productId ?? 0}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variants = await _repository.GetAllAsync(productId);
                 var variantDtos = new List<ProductVariantDto>();
@@ -92,7 +92,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(2));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -118,10 +118,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variant_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<ProductVariantDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<ProductVariantDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variant = await _repository.GetByIdWithDetailsAsync(id);
                 if (variant == null)
@@ -148,7 +148,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(2));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -280,7 +280,7 @@ namespace Jumia_Clone.Controllers
                 var resultDto = MapToDto(completeVariant);
 
                 // Invalidate caches
-                InvalidateProductVariantCaches(dto.ProductId);
+                //InvalidateProductVariantCaches(dto.ProductId);
 
                 return CreatedAtAction(
                     nameof(GetById),
@@ -431,8 +431,8 @@ namespace Jumia_Clone.Controllers
                 var resultDto = MapToDto(completeVariant);
 
                 // Invalidate caches
-                InvalidateProductVariantCaches(existingVariant.ProductId);
-                _cache.Remove($"product_variant_{id}");
+                //InvalidateProductVariantCaches(existingVariant.ProductId);
+                //_cache.Remove($"product_variant_{id}");
 
                 return Ok(new ApiResponse<ProductVariantDto>
                 {
@@ -508,8 +508,8 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Invalidate caches
-                InvalidateProductVariantCaches(productId);
-                _cache.Remove($"product_variant_{id}");
+                //InvalidateProductVariantCaches(productId);
+                //_cache.Remove($"product_variant_{id}");
 
                 return Ok(new ApiResponse<object>
                 {
@@ -588,7 +588,7 @@ namespace Jumia_Clone.Controllers
                 var resultDto = MapToDto(completeVariant);
 
                 // Invalidate caches
-                InvalidateProductVariantCaches(productId);
+                //InvalidateProductVariantCaches(productId);
 
                 return Ok(new ApiResponse<ProductVariantDto>
                 {
@@ -659,8 +659,8 @@ namespace Jumia_Clone.Controllers
                 var resultDto = MapToDto(completeVariant);
 
                 // Invalidate caches
-                InvalidateProductVariantCaches(productId);
-                _cache.Remove($"product_variant_{id}");
+                //InvalidateProductVariantCaches(productId);
+                //_cache.Remove($"product_variant_{id}");
 
                 return Ok(new ApiResponse<ProductVariantDto>
                 {
@@ -700,10 +700,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variants_by_product_{productId}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variants = await _repository.GetAllAsync(productId);
                 var variantDtos = new List<ProductVariantDto>();
@@ -726,7 +726,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(2));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -752,10 +752,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variants_low_stock_{threshold}";
 
                 // Try to get from cache first - short cache time for low stock items
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variants = await _repository.GetLowStockVariantsAsync(threshold);
                 var variantDtos = new List<ProductVariantDto>();
@@ -778,7 +778,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -812,10 +812,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variants_by_sku_{sku}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variants = await _repository.GetVariantsBySKUAsync(sku);
                 var variantDtos = new List<ProductVariantDto>();
@@ -838,7 +838,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(2));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -863,10 +863,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"product_variants_by_price_{minPrice}_{maxPrice}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<ProductVariantDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var variants = await _repository.GetVariantsByPriceRangeAsync(minPrice, maxPrice);
                 var variantDtos = new List<ProductVariantDto>();
@@ -889,7 +889,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(2));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -945,24 +945,24 @@ namespace Jumia_Clone.Controllers
         }
 
         // Helper method to invalidate product variant caches
-        private void InvalidateProductVariantCaches(int productId)
-        {
-            // Remove all caches related to variants
-            _cache.Remove($"product_variants_0"); // All variants
-            _cache.Remove($"product_variants_{productId}"); // Variants for specific product
-            _cache.Remove($"product_variants_by_product_{productId}"); // Variants by product endpoint
+        ////private void InvalidateProductVariantCaches(int productId)
+        //{
+        //    // Remove all caches related to variants
+        ////    _cache.Remove($"product_variants_0"); // All variants
+        ////    _cache.Remove($"product_variants_{productId}"); // Variants for specific product
+        ////    _cache.Remove($"product_variants_by_product_{productId}"); // Variants by product endpoint
 
-            // Low stock caches - multiple thresholds
-            _cache.Remove($"product_variants_low_stock_10"); // Default threshold
-            _cache.Remove($"product_variants_low_stock_5");
-            _cache.Remove($"product_variants_low_stock_20");
+        //    // Low stock caches - multiple thresholds
+        ////    _cache.Remove($"product_variants_low_stock_10"); // Default threshold
+        ////    _cache.Remove($"product_variants_low_stock_5");
+        ////    _cache.Remove($"product_variants_low_stock_20");
 
-            // We don't know which price ranges or SKUs this variant might be part of,
-            // so we rely on cache expiration for those
+        //    // We don't know which price ranges or SKUs this variant might be part of,
+        //    // so we rely on cache expiration for those
 
-            // This will also trigger refreshes in related product caches
-            string cacheKeyPattern = $"product_*_{productId}";
+        //    // This will also trigger refreshes in related product caches
+        //    string cacheKeyPattern = $"product_*_{productId}";
 
-        }
+        //}
     }
 }

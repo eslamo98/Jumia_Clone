@@ -175,6 +175,35 @@ public class ProductAttributesController : ControllerBase
         }
     }
 
+    // Get all product attributes for all subcategories
+    [HttpGet()]
+    [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Seller}")]
+    public async Task<IActionResult> GetProductAttributes([FromQuery]PaginationDto pagination, bool include_details)
+    {
+        try
+        {
+            var attributes = await _productAttributeRepository.GetProductAttributes(pagination, include_details);
+            var totalItems = await _productAttributeRepository.GetCountAsync();
+
+            return Ok(new 
+            {
+                Message = "Product attributes retrieved successfully",
+                Data = attributes,
+                totalItems,
+                Success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error retrieving product attributes ");
+            return StatusCode(500, new ApiErrorResponse
+            {
+                Message = "Error retrieving product attributes",
+                ErrorMessages = new[] { ex.Message }
+            });
+        }
+    }
+
     // Get all product attributes for a specific subcategory
     [HttpGet("subcategory/{subcategoryId}")]
     [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Seller}")]

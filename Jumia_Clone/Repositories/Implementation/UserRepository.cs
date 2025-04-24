@@ -333,7 +333,22 @@ namespace Jumia_Clone.Repositories.Implementation
                     if (customer == null)
                         return null;
 
-                    return _mapper.Map<CustomerDto>(customer);
+                return new CustomerDto()
+                {
+                    CustomerId = customer.CustomerId,
+                    CreatedAt = customer.User.CreatedAt,
+                    Email = customer.User.Email,
+                    FirstName = customer.User.FirstName,
+                    IsActive = customer.User.IsActive,
+                    PhoneNumber = customer.User.PhoneNumber,
+                    LastName = customer.User.LastName,
+                    ProfileImageUrl = customer.User.ProfileImageUrl,
+                    UserType = customer.User.UserType,
+                    LastLogin = customer.LastLogin,
+                    UserId = customer.UserId,
+                    UpdatedAt = customer.User.UpdatedAt
+                };
+                
                 }
                 catch (Exception ex)
                 {
@@ -378,8 +393,8 @@ namespace Jumia_Clone.Repositories.Implementation
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                         UserType = UserRoles.Customer,
-                        IsActive = true
-                        // ProfileImageUrl can be added if your User entity has this property
+                        IsActive = true,
+                        ProfileImageUrl = imagePath
                     };
 
                     _context.Users.Add(user);
@@ -436,7 +451,8 @@ namespace Jumia_Clone.Repositories.Implementation
                     // Update user details
                     if (!string.IsNullOrEmpty(updateDto.FirstName))
                         user.FirstName = updateDto.FirstName;
-
+                user.IsActive = updateDto.IsActive;
+                    
                     if (!string.IsNullOrEmpty(updateDto.LastName))
                         user.LastName = updateDto.LastName;
 
@@ -446,8 +462,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     // Update profile image if provided
                     if (imagePath != null)
                     {
-                        // Assuming ProfileImageUrl is a property in your User entity
-                        // user.ProfileImageUrl = imagePath;
+                        user.ProfileImageUrl = imagePath;
                     }
 
                     user.UpdatedAt = DateTime.UtcNow;
@@ -568,7 +583,26 @@ namespace Jumia_Clone.Repositories.Implementation
                     if (seller == null)
                         return null;
 
-                    return _mapper.Map<SellerDto>(seller);
+                    return new SellerDto ()
+                    {
+                        PhoneNumber = seller.User.PhoneNumber,
+                        IsVerified = seller.IsVerified,
+                        BusinessDescription = seller.BusinessDescription,
+                        BusinessLogo = seller.BusinessLogo,
+                        BusinessName = seller.BusinessName,
+                        CreatedAt = seller.User.CreatedAt,
+                        Email = seller.User.Email,
+                        FirstName = seller.User.FirstName,
+                        IsActive = seller.User.IsActive,
+                        LastName = seller.User.LastName,
+                        ProfileImageUrl = seller.User.ProfileImageUrl,
+                        Rating = seller.Rating,
+                        SellerId = seller.SellerId,
+                        UserId = seller.UserId,
+                        UpdatedAt = seller.User.UpdatedAt,
+                        VerifiedAt = seller.VerifiedAt,
+                        UserType = seller.User.UserType
+                    };
                 }
                 catch (Exception ex)
                 {
@@ -681,12 +715,11 @@ namespace Jumia_Clone.Repositories.Implementation
 
                     if (!string.IsNullOrEmpty(updateDto.PhoneNumber))
                         user.PhoneNumber = updateDto.PhoneNumber;
-
+                user.IsActive = updateDto.IsActive;
                     // Update profile image if provided
                     if (profileImagePath != null)
                     {
-                        // Assuming ProfileImageUrl is a property in your User entity
-                        // user.ProfileImageUrl = profileImagePath;
+                        user.ProfileImageUrl = profileImagePath;
                     }
 
                     user.UpdatedAt = DateTime.UtcNow;
@@ -695,6 +728,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     // Update seller details
                     if (!string.IsNullOrEmpty(updateDto.BusinessName))
                         seller.BusinessName = updateDto.BusinessName;
+                    seller.IsVerified = updateDto.IsVerified;
 
                     if (updateDto.BusinessDescription != null)
                         seller.BusinessDescription = updateDto.BusinessDescription;
@@ -751,7 +785,7 @@ namespace Jumia_Clone.Repositories.Implementation
                         seller.VerifiedAt = null;
                     }
 
-                    _context.Entry(seller).State = EntityState.Modified;
+                   seller.IsVerified = verify;
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
@@ -784,8 +818,49 @@ namespace Jumia_Clone.Repositories.Implementation
                     throw;
                 }
             }
+            public async Task<bool> SoftDeleteUserAsync(int userId, string userType)
+            {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    var user = await _context.Users
+                        .Include(u => u.Customer)
+                        .Include(u => u.Seller)
+                        .FirstOrDefaultAsync(u => u.UserId == userId);
+            
+                    if (user == null)
+                        return false;
 
-            #endregion
+                    // Soft delete by setting IsActive to false
+                    user.IsActive = false;
+                    user.UpdatedAt = DateTime.UtcNow;
+        
+                    // If the user is a seller, soft delete their products
+                    if (userType == UserRoles.Seller && user.Seller != null)
+                    {
+                        var sellerProducts = await _context.Products
+                            .Where(p => p.SellerId == user.Seller.SellerId)
+                            .ToListAsync();
+                
+                        foreach (var product in sellerProducts)
+                        {
+                            product.ApprovalStatus = ProductApprovalStatus.Deleted;
+                            product.UpdatedAt = DateTime.UtcNow;
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error soft deleting user {UserId} of type {UserType}", userId, userType);
+                    throw;
+                }
+            }
+                        #endregion
 
             #region Admin Methods
 

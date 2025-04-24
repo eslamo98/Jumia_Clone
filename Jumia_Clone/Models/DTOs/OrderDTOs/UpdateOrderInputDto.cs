@@ -21,5 +21,6 @@ namespace Jumia_Clone.Models.DTOs.OrderDTOs
 
         [StringLength(10)]
         public string PaymentStatus { get; set; }
+        public string OrderStatus { get; set; }
     }
 }

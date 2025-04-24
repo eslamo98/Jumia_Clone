@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Jumia_Clone.Services.Interfaces;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Microsoft.EntityFrameworkCore;
+using Jumia_Clone.Models.DTOs.ProductDTOs;
+using Jumia_Clone.Repositories.Implementation;
+using Jumia_Clone.Models.Enums;
 
 namespace Jumia_Clone.Controllers
 {
@@ -130,7 +133,7 @@ namespace Jumia_Clone.Controllers
         // Create a new subcategory
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Create([FromBody] CreateSubcategoryDto subcategoryDto)
+        public async Task<IActionResult> Create([FromForm] CreateSubcategoryDto subcategoryDto)
         {
             if (!ModelState.IsValid)
             {
@@ -148,9 +151,21 @@ namespace Jumia_Clone.Controllers
             {
                 var createdSubcategory = await _subcategoryRepository.CreateSubcategory(subcategoryDto);
 
-                if (!string.IsNullOrEmpty(createdSubcategory.ImageUrl))
+                if (subcategoryDto.ImageFile != null && subcategoryDto.ImageFile.Length > 0)
                 {
-                    createdSubcategory.ImageUrl = _imageService.GetImageUrl(createdSubcategory.ImageUrl);
+                    string entityName = $"{createdSubcategory.Name}-{createdSubcategory.SubcategoryId}";
+                    string imagePath = await _imageService.SaveImageAsync(
+                        subcategoryDto.ImageFile,
+                        EntityType.SubCategory,
+                        entityName
+                    );
+                    // Update the product with the image path
+                    createdSubcategory = await _subcategoryRepository.UpdateSubcategoryImageAsync(
+                        createdSubcategory.SubcategoryId,
+                        imagePath
+                    );
+                    // Add the image URL to the response
+                    createdSubcategory.ImageUrl = _imageService.GetImageUrl(imagePath);
                 }
 
                 return CreatedAtAction(
@@ -184,10 +199,20 @@ namespace Jumia_Clone.Controllers
         // Update an existing subcategory
         [HttpPut("{subcategoryId}")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Update(int subcategoryId, [FromBody] EditSubcategoryDto subcategoryDto)
+        public async Task<IActionResult> Update(int subcategoryId, [FromForm] EditSubcategoryDto subcategoryDto)
         {
             try
             {
+                var existingSubCategory = await _subcategoryRepository.GetSubcategoryById(subcategoryDto.SubcategoryId);
+                if (existingSubCategory == null)
+                {
+                    return NotFound(new ApiResponse<object>
+                    {
+                        Message = "Subcategory not found",
+                        Success = false,
+                        Data = null
+                    });
+                }
                 var updatedSubcategory = await _subcategoryRepository.UpdateSubcategory(subcategoryId, subcategoryDto);
 
                 if (updatedSubcategory == null)
@@ -198,10 +223,25 @@ namespace Jumia_Clone.Controllers
                     ));
                 }
 
-                if (!string.IsNullOrEmpty(updatedSubcategory.ImageUrl))
+                // Handle main image update if provided
+                if (subcategoryDto.ImageFile != null && subcategoryDto.ImageFile.Length > 0)
                 {
-                    updatedSubcategory.ImageUrl = _imageService.GetImageUrl(updatedSubcategory.ImageUrl);
+                    string entityName = $"{updatedSubcategory.Name}-{updatedSubcategory.SubcategoryId}";
+                    string imagePath = await _imageService.UpdateImageAsync(
+                        subcategoryDto.ImageFile,
+                        existingSubCategory.ImageUrl,
+                        EntityType.Product,
+                        entityName
+                    );
+
+                    // Update the product with the new image path
+                    updatedSubcategory = await _subcategoryRepository.UpdateSubcategoryImageAsync(updatedSubcategory.SubcategoryId, imagePath);
+
+                    // Add the image URL to the response
+                    updatedSubcategory.ImageUrl = _imageService.GetImageUrl(imagePath);
                 }
+
+               
 
                 return Ok(new ApiResponse<Subcategorydto>(
                     updatedSubcategory,

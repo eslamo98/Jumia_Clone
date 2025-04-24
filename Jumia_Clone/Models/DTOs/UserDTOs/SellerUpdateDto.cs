@@ -10,5 +10,7 @@ namespace Jumia_Clone.Models.DTOs.UserDTOs
         public string BusinessDescription { get; set; }
 
         public IFormFile BusinessLogo { get; set; }
+        public bool IsVerified { get; set; }
+       
     }
 }
