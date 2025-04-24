@@ -21,7 +21,7 @@ namespace Jumia_Clone.Controllers
 
         public CartsController(
             ICartRepository cartRepository,
-            //IMemoryCache cache,
+            ////IMemoryCache cache,
             ILogger<CartsController> logger)
         {
             _cartRepository = cartRepository;

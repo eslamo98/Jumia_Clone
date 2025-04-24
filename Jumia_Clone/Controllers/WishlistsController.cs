@@ -20,7 +20,7 @@ namespace Jumia_Clone.Controllers
 
         public WishlistsController(
             IWishlistRepository wishlistRepository,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<WishlistsController> logger)
         {
             _wishlistRepository = wishlistRepository;
