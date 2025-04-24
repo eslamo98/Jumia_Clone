@@ -20,21 +20,21 @@ namespace Jumia_Clone.Controllers
     {
         private readonly IUserRepository _userRepository;
         private readonly IImageService _imageService;
-        private readonly IMemoryCache _cache;
+        //private readonly IMemoryCache _cache;
         private readonly ILogger<UsersController> _logger;
         private readonly IMapper _mapper;
 
         public UsersController(
             IUserRepository userRepository,
             IImageService imageService,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<UsersController> logger,
             IMapper mapper
             )
         {
             _userRepository = userRepository;
             _imageService = imageService;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
             _mapper = mapper;
         }
@@ -57,27 +57,27 @@ namespace Jumia_Clone.Controllers
             return User.IsInRole(UserRoles.Admin);
         }
 
-        private void InvalidateUserCache(int userId, string userType = null)
-        {
-            var userCacheKey = $"user_{userId}";
-            _cache.Remove(userCacheKey);
+        //private void InvalidateUserCache(int userId, string userType = null)
+        //{
+        //    var userCacheKey = $"user_{userId}";
+        //    _cache.Remove(userCacheKey);
 
-            if (!string.IsNullOrEmpty(userType))
-            {
-                if (userType.Equals("Customer", StringComparison.OrdinalIgnoreCase))
-                {
-                    _cache.Remove("customers_list");
-                }
-                else if (userType.Equals("Seller", StringComparison.OrdinalIgnoreCase))
-                {
-                    _cache.Remove("sellers_list");
-                }
-                else if (userType.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-                {
-                    _cache.Remove("admins_list");
-                }
-            }
-        }
+        //    if (!string.IsNullOrEmpty(userType))
+        //    {
+        //        if (userType.Equals("Customer", StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            _cache.Remove("customers_list");
+        //        }
+        //        else if (userType.Equals("Seller", StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            _cache.Remove("sellers_list");
+        //        }
+        //        else if (userType.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            _cache.Remove("admins_list");
+        //        }
+        //    }
+        //}
 
         #endregion
 
@@ -101,10 +101,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"user_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<UserDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<UserDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var user = await _userRepository.GetUserByIdAsync(id);
 
@@ -126,11 +126,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -235,7 +235,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Invalidate cache
-                InvalidateUserCache(id);
+                //InvalidateUserCache(id);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -276,7 +276,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Invalidate cache
-                InvalidateUserCache(id);
+                //InvalidateUserCache(id);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -313,10 +313,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"customers_list_{pagination.PageNumber}_{pagination.PageSize}_{searchTerm}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -345,11 +345,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -391,13 +391,13 @@ namespace Jumia_Clone.Controllers
                     return Forbid();
                 }
 
-                var cacheKey = $"customer_{id}";
+                //var cacheKey = $"customer_{id}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<CustomerDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<CustomerDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var response = new ApiResponse<CustomerDto>
                 {
@@ -406,12 +406,12 @@ namespace Jumia_Clone.Controllers
                     Success = true
                 };
 
-                // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //// Cache the result
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -429,7 +429,8 @@ namespace Jumia_Clone.Controllers
         // POST: api/users/customers/register
         [HttpPost("customers/register")]
         [AllowAnonymous]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
+
         public async Task<IActionResult> RegisterCustomer([FromForm] CustomerRegistrationDto registrationDto)
         {
             if (!ModelState.IsValid)
@@ -492,17 +493,17 @@ namespace Jumia_Clone.Controllers
         // PUT: api/users/customers/{id}
         [HttpPut("customers/{id}")]
         //[Authorize]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateCustomer(int id, [FromForm] CustomerUpdateDto updateDto)
         {
-            if (id != updateDto.UserId)
-            {
-                return BadRequest(new ApiErrorResponse
-                {
-                    Message = "Invalid customer ID",
-                    ErrorMessages = new string[] { "The customer ID in the URL does not match the ID in the body" }
-                });
-            }
+            //if (id != updateDto.UserId)
+            //{
+            //    return BadRequest(new ApiErrorResponse
+            //    {
+            //        Message = "Invalid customer ID",
+            //        ErrorMessages = new string[] { "The customer ID in the URL does not match the ID in the body" }
+            //    });
+            //}
 
             if (!ModelState.IsValid)
             {
@@ -525,7 +526,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Get existing user to determine image path
-                var existingUser = await _userRepository.GetUserByIdAsync(id);
+                var existingUser = await _userRepository.GetUserByIdAsync(updateDto.UserId);
                 if (existingUser == null)
                 {
                     return NotFound(new ApiResponse<object>
@@ -555,7 +556,7 @@ namespace Jumia_Clone.Controllers
                 var customer = await _userRepository.UpdateCustomerAsync(updateDto, imagePath);
 
                 // Invalidate cache
-                InvalidateUserCache(id, "Customer");
+                //InvalidateUserCache(id, "Customer");
 
                 return Ok(new ApiResponse<CustomerDto>
                 {
@@ -574,6 +575,43 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+// DELETE: api/users/customers/{id}
+[HttpDelete("customers/{id}")]
+[Authorize(Roles = "Admin")]
+[EnableRateLimiting("strict")]
+public async Task<IActionResult> DeleteCustomer(int id)
+{
+    try
+    {
+        var result = await _userRepository.SoftDeleteUserAsync(id, UserRoles.Customer);
+
+        if (!result)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Message = "Customer not found",
+                Success = false,
+                Data = null
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Message = "Customer deleted successfully",
+            Success = true,
+            Data = null
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "An error occurred while deleting customer {CustomerId}", id);
+        return StatusCode(500, new ApiErrorResponse
+        {
+            Message = "An error occurred while deleting customer",
+            ErrorMessages = new string[] { ex.Message }
+        });
+    }
+}
 
         #endregion
 
@@ -587,11 +625,11 @@ namespace Jumia_Clone.Controllers
         {
             try
             {
-                var cacheKey = "sellers_basic_info";
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<BasicSellerInfoDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //var cacheKey = "sellers_basic_info";
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<BasicSellerInfoDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var sellers = await _userRepository.GetBasicSellersInfo();
                 var response = new ApiResponse<IEnumerable<BasicSellerInfoDto>>
@@ -601,11 +639,11 @@ namespace Jumia_Clone.Controllers
                     Success = true
                 };
 
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
                 return Ok(response);
             }
             catch (Exception ex)
@@ -634,10 +672,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"sellers_list_{pagination.PageNumber}_{pagination.PageSize}_{searchTerm}_{isVerified}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -666,11 +704,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -696,10 +734,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"seller_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<SellerDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<SellerDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var seller = await _userRepository.GetSellerByIdAsync(id);
 
@@ -721,11 +759,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -743,7 +781,7 @@ namespace Jumia_Clone.Controllers
         // POST: api/users/sellers/register
         [HttpPost("sellers/register")]
         [AllowAnonymous]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> RegisterSeller([FromForm] SellerRegistrationDto registrationDto)
         {
             if (!ModelState.IsValid)
@@ -814,17 +852,17 @@ namespace Jumia_Clone.Controllers
         // PUT: api/users/sellers/{id}
         [HttpPut("sellers/{id}")]
         //[Authorize]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateSeller(int id, [FromForm] SellerUpdateDto updateDto)
         {
-            if (id != updateDto.UserId)
-            {
-                return BadRequest(new ApiErrorResponse
-                {
-                    Message = "Invalid seller ID",
-                    ErrorMessages = new string[] { "The seller ID in the URL does not match the ID in the body" }
-                });
-            }
+            //if (id != updateDto.UserId)
+            //{
+            //    return BadRequest(new ApiErrorResponse
+            //    {
+            //        Message = "Invalid seller ID",
+            //        ErrorMessages = new string[] { "The seller ID in the URL does not match the ID in the body" }
+            //    });
+            //}
 
             if (!ModelState.IsValid)
             {
@@ -847,7 +885,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Get existing user to determine image paths
-                var existingUser = await _userRepository.GetUserByIdAsync(id);
+                var existingUser = await _userRepository.GetUserByIdAsync(updateDto.UserId);
                 if (existingUser == null)
                 {
                     return NotFound(new ApiResponse<object>
@@ -859,7 +897,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Get existing seller details for business logo
-                var existingSeller = await _userRepository.GetSellerByUserIdAsync(id);
+                var existingSeller = await _userRepository.GetSellerByUserIdAsync(updateDto.UserId);
                 if (existingSeller == null)
                 {
                     return NotFound(new ApiResponse<object>
@@ -904,7 +942,7 @@ namespace Jumia_Clone.Controllers
                 var seller = await _userRepository.UpdateSellerAsync(updateDto, profileImagePath, businessLogoPath);
 
                 // Invalidate cache
-                InvalidateUserCache(id, "Seller");
+                //InvalidateUserCache(id, "Seller");
 
                 return Ok(new ApiResponse<SellerDto>
                 {
@@ -945,7 +983,7 @@ namespace Jumia_Clone.Controllers
                 }
 
                 // Invalidate cache
-                InvalidateUserCache(seller.UserId, "Seller");
+                //InvalidateUserCache(seller.UserId, "Seller");
 
                 return Ok(new ApiResponse<SellerDto>
                 {
@@ -965,6 +1003,43 @@ namespace Jumia_Clone.Controllers
             }
         }
 
+
+// DELETE: api/users/sellers/{id}
+[HttpDelete("sellers/{id}")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> DeleteSeller(int id)
+{
+    try
+    {
+        var result = await _userRepository.SoftDeleteUserAsync(id, UserRoles.Seller);
+
+        if (!result)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Message = "Seller not found",
+                Success = false,
+                Data = null
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Message = "Seller and their products deleted successfully",
+            Success = true,
+            Data = null
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "An error occurred while deleting seller {SellerId}", id);
+        return StatusCode(500, new ApiErrorResponse
+        {
+            Message = "An error occurred while deleting seller",
+            ErrorMessages = new string[] { ex.Message }
+        });
+    }
+}
         #endregion
 
         #region Admin Endpoints
@@ -982,10 +1057,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"admins_list_{pagination.PageNumber}_{pagination.PageSize}_{searchTerm}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -1014,11 +1089,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -1045,10 +1120,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"admin_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<AdminDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<AdminDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var admin = await _userRepository.GetAdminByIdAsync(id);
 
@@ -1070,11 +1145,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -1092,7 +1167,7 @@ namespace Jumia_Clone.Controllers
         // POST: api/users/admins
         [HttpPost("admins")]
         //[Authorize(Roles = "Admin")]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateAdmin([FromForm] AdminCreationDto creationDto)
         {
             if (!ModelState.IsValid)
@@ -1155,7 +1230,7 @@ namespace Jumia_Clone.Controllers
         // PUT: api/users/admins/{id}
         [HttpPut("admins/{id}")]
         //[Authorize(Roles = "Admin")]
-        [EnableRateLimiting("strict")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateAdmin(int id, [FromForm] AdminUpdateDto updateDto)
         {
             if (id != updateDto.UserId)
@@ -1212,7 +1287,7 @@ namespace Jumia_Clone.Controllers
                 var admin = await _userRepository.UpdateAdminAsync(updateDto, imagePath);
 
                 // Invalidate cache
-                InvalidateUserCache(id, "Admin");
+                //InvalidateUserCache(id, "Admin");
 
                 return Ok(new ApiResponse<AdminDto>
                 {

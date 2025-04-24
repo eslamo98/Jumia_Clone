@@ -1,4 +1,5 @@
 ﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<IEnumerable<Subcategorydto>> GetAllSubcategoriesAsync(PaginationDto pagination, bool includeInactive);
         Task<IEnumerable<SubcategoryBasicInfoDto>> GetBasicInfo(int categoryId);
         Task<int> GetCountAsync();
+        Task<Subcategorydto> UpdateSubcategoryImageAsync(int id, string imagePath);
+
     }
 }
 

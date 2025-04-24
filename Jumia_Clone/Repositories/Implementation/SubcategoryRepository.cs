@@ -1,8 +1,10 @@
 ﻿using Jumia_Clone.Data;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.ProductDTOs;
 using Jumia_Clone.Models.DTOs.SubcategoryDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
+using Jumia_Clone.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,10 +13,12 @@ namespace Jumia_Clone.Repositories.Implementation
     public class SubcategoriesRepository : ISubcategoryRepository
     {
         private readonly ApplicationDbContext _context;
+        private readonly IImageService _imageService;
 
-        public SubcategoriesRepository(ApplicationDbContext context)
+        public SubcategoriesRepository(ApplicationDbContext context, IImageService imageService)
         {
             _context = context;
+            _imageService = imageService;
         }
 
         // Get Subcategories by Category
@@ -55,6 +59,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     Description = sc.Description,
                     ImageUrl = sc.ImageUrl,
                     IsActive = sc.IsActive ??false,
+                    ProductCount = sc.Products.Count(),
                     CategoryId = sc.CategoryId
                 })
                 .ToListAsync();
@@ -96,7 +101,25 @@ namespace Jumia_Clone.Repositories.Implementation
             };
             
         }
+        public async Task<Subcategorydto> UpdateSubcategoryImageAsync(int id, string imagePath)
+        {
+            var subCategory = await _context.SubCategories.FindAsync(id);
 
+            if (subCategory == null)
+                throw new KeyNotFoundException($"Subcategory with ID {id} not found");
+
+            // Delete old image if exists
+            if (!string.IsNullOrEmpty(subCategory.ImageUrl))
+            {
+                await _imageService.DeleteImageAsync(subCategory.ImageUrl);
+            }
+
+            // Update image path
+            subCategory.ImageUrl = imagePath;
+            await _context.SaveChangesAsync();
+
+            return await GetSubcategoryById(id);
+        }
         // Update Subcategory
         public async Task<Subcategorydto> UpdateSubcategory(int subcategoryId, EditSubcategoryDto subcategoryDto)
         {
@@ -112,6 +135,7 @@ namespace Jumia_Clone.Repositories.Implementation
             subcategory.Name = subcategoryDto.Name;
             subcategory.CategoryId = subcategoryDto.CategoryId;
             subcategory.Description = subcategoryDto.Description;
+            if(subcategoryDto.ImageFile != null && subcategoryDto.ImageFile.Length > 0)
             subcategory.ImageUrl = subcategoryDto.ImageUrl;
             subcategory.IsActive = subcategoryDto.IsActive;
 
@@ -250,12 +274,25 @@ namespace Jumia_Clone.Repositories.Implementation
 
         public async Task<IEnumerable<SubcategoryBasicInfoDto>> GetBasicInfo(int categoryId)
         {
+            if(categoryId == 0)
+            {
+                return await _context.SubCategories
+                .Where(sc => sc.IsActive == true)
+                .Select(sc => new SubcategoryBasicInfoDto
+                {
+                    SubcategoryId = sc.SubcategoryId,
+                    Name = sc.Name,
+                    CategoryName = sc.Category.Name
+                })
+                .ToListAsync();
+            }
             return await _context.SubCategories
                 .Where(sc => sc.IsActive == true && sc.CategoryId == categoryId)
                 .Select(sc => new SubcategoryBasicInfoDto
                 {
                     SubcategoryId = sc.SubcategoryId,
-                    Name = sc.Name
+                    Name = sc.Name,
+                    CategoryName = sc.Category.Name
                 })
                 .ToListAsync();
         }

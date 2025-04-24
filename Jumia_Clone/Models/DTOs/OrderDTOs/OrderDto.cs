@@ -17,6 +17,7 @@
         public DateTime? UpdatedAt { get; set; }
         public int? AffiliateId { get; set; }
         public string AffiliateCode { get; set; }
+        public string OrderStatus { get; set; }
         public List<SubOrderDto> SubOrders { get; set; }
     }
 

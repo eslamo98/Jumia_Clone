@@ -13,20 +13,6 @@ namespace Jumia_Clone.Models.DTOs.OrderDTOs
         public int? CouponId { get; set; }
 
         [Required]
-        [Range(0.01, double.MaxValue, ErrorMessage = "Total amount must be greater than 0")]
-        public decimal TotalAmount { get; set; }
-
-        public decimal? DiscountAmount { get; set; }
-
-        public decimal? ShippingFee { get; set; }
-
-        public decimal? TaxAmount { get; set; }
-
-        [Required]
-        [Range(0.01, double.MaxValue, ErrorMessage = "Final amount must be greater than 0")]
-        public decimal FinalAmount { get; set; }
-
-        [Required]
         [StringLength(20)]
         public string PaymentMethod { get; set; }
 
@@ -36,6 +22,16 @@ namespace Jumia_Clone.Models.DTOs.OrderDTOs
         public string AffiliateCode { get; set; }
 
         [Required]
+        public List<CreateOrderItemInputDto> OrderItems { get; set; }
+        
+        // These properties will be calculated by the backend
+        public decimal TotalAmount { get; set; }
+        public decimal? DiscountAmount { get; set; }
+        public decimal? ShippingFee { get; set; }
+        public decimal? TaxAmount { get; set; }
+        public decimal FinalAmount { get; set; }
+        
+        // This will be populated by the backend
         public List<CreateSubOrderInputDto> SubOrders { get; set; }
     }
 }

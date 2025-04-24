@@ -15,7 +15,7 @@ namespace Jumia_Clone.Controllers
     public class WishlistsController : ControllerBase
     {
         private readonly IWishlistRepository _wishlistRepository;
-        private readonly IMemoryCache _cache;
+        ////private readonly IMemoryCache _cache;
         private readonly ILogger<WishlistsController> _logger;
 
         public WishlistsController(
@@ -24,7 +24,7 @@ namespace Jumia_Clone.Controllers
             ILogger<WishlistsController> logger)
         {
             _wishlistRepository = wishlistRepository;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -41,18 +41,18 @@ namespace Jumia_Clone.Controllers
             return userId;
         }
 
-        private void InvalidateWishlistCache(int customerId)
-        {
-            var wishlistCacheKey = $"wishlist_{customerId}";
-            var wishlistSummaryCacheKey = $"wishlist_summary_{customerId}";
-            var recentlyAddedCacheKey = $"wishlist_recent_{customerId}";
-            var outOfStockCacheKey = $"wishlist_outofstock_{customerId}";
+        //private void InvalidateWishlistCache(int customerId)
+        //{
+        //    var wishlistCacheKey = $"wishlist_{customerId}";
+        //    var wishlistSummaryCacheKey = $"wishlist_summary_{customerId}";
+        //    var recentlyAddedCacheKey = $"wishlist_recent_{customerId}";
+        //    var outOfStockCacheKey = $"wishlist_outofstock_{customerId}";
 
-            _cache.Remove(wishlistCacheKey);
-            _cache.Remove(wishlistSummaryCacheKey);
-            _cache.Remove(recentlyAddedCacheKey);
-            _cache.Remove(outOfStockCacheKey);
-        }
+        //    //_cache.Remove(wishlistCacheKey);
+        //    //_cache.Remove(wishlistSummaryCacheKey);
+        //    //_cache.Remove(recentlyAddedCacheKey);
+        //    //_cache.Remove(outOfStockCacheKey);
+        //}
 
         #endregion
 
@@ -68,10 +68,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"wishlist_{customerId}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<WishlistDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<WishlistDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var wishlist = await _wishlistRepository.GetWishlistByCustomerIdAsync(customerId);
 
@@ -87,7 +87,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -114,10 +114,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"wishlist_summary_{customerId}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<WishlistSummaryDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<WishlistSummaryDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var summary = await _wishlistRepository.GetWishlistSummaryByCustomerIdAsync(customerId);
 
@@ -133,7 +133,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -200,10 +200,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"wishlist_recent_{customerId}_{count}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<List<WishlistItemDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<List<WishlistItemDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var recentItems = await _wishlistRepository.GetRecentlyAddedWishlistItemsAsync(customerId, count);
 
@@ -219,7 +219,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -246,10 +246,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"wishlist_outofstock_{customerId}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<List<WishlistItemDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<List<WishlistItemDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var outOfStockItems = await _wishlistRepository.GetOutOfStockWishlistItemsAsync(customerId);
 
@@ -265,7 +265,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -315,7 +315,7 @@ namespace Jumia_Clone.Controllers
                 var wishlistItem = await _wishlistRepository.AddItemToWishlistAsync(customerId, itemDto);
 
                 // Invalidate cache
-                InvalidateWishlistCache(customerId);
+                //InvalidateWishlistCache(customerId);
 
                 return CreatedAtAction(
                     nameof(GetWishlistItem),
@@ -371,7 +371,7 @@ namespace Jumia_Clone.Controllers
                 var result = await _wishlistRepository.RemoveItemFromWishlistAsync(id);
 
                 // Invalidate cache
-                InvalidateWishlistCache(customerId);
+                //InvalidateWishlistCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -403,7 +403,7 @@ namespace Jumia_Clone.Controllers
                 var result = await _wishlistRepository.ClearWishlistAsync(customerId);
 
                 // Invalidate cache
-                InvalidateWishlistCache(customerId);
+                //InvalidateWishlistCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -446,7 +446,7 @@ namespace Jumia_Clone.Controllers
                 var cartItem = await _wishlistRepository.MoveItemToCartAsync(customerId, id);
 
                 // Invalidate cache
-                InvalidateWishlistCache(customerId);
+                //InvalidateWishlistCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -528,7 +528,7 @@ namespace Jumia_Clone.Controllers
                 var cartItems = await _wishlistRepository.MoveMultipleItemsToCartAsync(customerId, validItemIds);
 
                 // Invalidate cache
-                InvalidateWishlistCache(customerId);
+                ////InvalidateWishlistCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {

@@ -97,7 +97,7 @@ namespace Jumia_Clone.Repositories.Implementation
             {
                 query = query.Where(p => p.ApprovalStatus == filter.ApprovalStatus);
             }
-            else
+            //else
                 //{
                 //    // By default, show only approved products
                 //    query = query.Where(p => p.ApprovalStatus == ProductApprovalStatus.Approved && p.IsAvailable == true);
@@ -108,15 +108,16 @@ namespace Jumia_Clone.Repositories.Implementation
 
             // Apply pagination
             var products = await query
-                .Skip((pagination.PageSize - 1) * pagination.PageNumber)
+                .Skip((pagination.PageSize) * pagination.PageNumber)
                 .Take(pagination.PageSize)
                 .Include(p => p.Seller)
                 .Include(p => p.Subcategory)
                 .Include(p => p.Ratings)
                 .Include(p => p.ProductVariants)
-                .Include(P => P.ProductImages)
+                .Include(p => p.ProductImages)
                 .Include(p => p.ProductAttributeValues)
-                .ThenInclude(p => p.Attribute)
+                    .ThenInclude(p => p.Attribute)
+                .AsSplitQuery() 
                 .ToListAsync();
 
             return products.Select(p => MapToProductDto(p, true));
@@ -188,8 +189,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     await _context.SaveChangesAsync();
                 }
 
-                // Process variants if any
-                // Process variants if any
+
 if (productDto.HasVariants && productDto.Variants != null && productDto.Variants.Any())
 {
     foreach (var variantDto in productDto.Variants)
@@ -204,7 +204,7 @@ if (productDto.HasVariants && productDto.Variants != null && productDto.Variants
             Sku = variantDto.Sku,
             IsDefault = variantDto.IsDefault,
             IsAvailable = true,
-            VariantImageUrl = "" // Will be updated below if image is provided
+            VariantImageUrl = "" 
         };
 
         _context.ProductVariants.Add(variant);
@@ -1299,34 +1299,20 @@ if (productDto.HasVariants && productDto.Variants != null && productDto.Variants
         // Apply sorting to product query
         private IQueryable<Product> ApplySorting(IQueryable<Product> query, string sortBy, string sortDirection)
         {
-            sortBy = sortBy?.ToLower() ?? "createdat";
-            sortDirection = sortDirection?.ToLower() ?? "desc";
-            bool isAscending = sortDirection == "asc";
+            bool ascending = sortDirection?.ToLower() == "asc";
 
-            switch (sortBy)
+            return sortBy?.ToLower() switch
             {
-                case "price":
-                    return isAscending
-                        ? query.OrderBy(p => p.BasePrice)
-                        : query.OrderByDescending(p => p.BasePrice);
-                case "name":
-                    return isAscending
-                        ? query.OrderBy(p => p.Name)
-                        : query.OrderByDescending(p => p.Name);
-                case "rating":
-                    return isAscending
-                        ? query.OrderBy(p => p.AverageRating)
-                        : query.OrderByDescending(p => p.AverageRating);
-                case "popularity":
-                    // Popularity can be determined by number of views or sales
-                    return query.OrderByDescending(p => p.ProductViews.Count);
-                case "createdat":
-                default:
-                    return isAscending
-                        ? query.OrderBy(p => p.CreatedAt)
-                        : query.OrderByDescending(p => p.CreatedAt);
-            }
+                "name" => ascending ? query.OrderBy(p => p.Name) : query.OrderByDescending(p => p.Name),
+                "subcategoryname" => ascending ? query.OrderBy(p => p.Subcategory.Name) : query.OrderByDescending(p => p.Subcategory.Name),
+                "stockquantity" => ascending ? query.OrderBy(p => p.StockQuantity) : query.OrderByDescending(p => p.StockQuantity),
+                "finalprice" => ascending ? query.OrderBy(p => p.BasePrice) : query.OrderByDescending(p => p.BasePrice),
+                "approvalstatus" => ascending ? query.OrderBy(p => p.ApprovalStatus) : query.OrderByDescending(p => p.ApprovalStatus),
+                "isavailable" => ascending ? query.OrderBy(p => p.IsAvailable) : query.OrderByDescending(p => p.IsAvailable),
+                _ => query.OrderBy(p => p.ProductId) // fallback
+            };
         }
+
 
         #endregion
     }

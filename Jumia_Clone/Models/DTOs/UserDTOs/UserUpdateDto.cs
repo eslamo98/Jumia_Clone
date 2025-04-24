@@ -16,5 +16,7 @@ namespace Jumia_Clone.Models.DTOs.UserDTOs
         public string PhoneNumber { get; set; }
 
         public IFormFile ProfileImage { get; set; }
+
+        public bool IsActive { get; set; }
     }
 }

@@ -14,6 +14,9 @@ using Jumia_Clone.MappingProfiles;
 using Jumia_Clone.CustomException;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 
 namespace Jumia_Clone.Configuration
 {
@@ -44,7 +47,7 @@ namespace Jumia_Clone.Configuration
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             // Add in-memory cache
-            services.AddMemoryCache();
+            //services.AddMemoryCache();
 
             //Add global exception handler
             //services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -128,6 +131,49 @@ namespace Jumia_Clone.Configuration
 
         public static WebApplication ConfigureMiddleware(this WebApplication app)
         {
+            // Add this middleware after authentication middleware
+            app.Use(async (context, next) =>
+            {
+                if (context.User.Identity.IsAuthenticated)
+                {
+                    var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    {
+                        var userRepository = context.RequestServices.GetRequiredService<IUserRepository>();
+                        var user = await userRepository.GetUserByIdAsync(userId);
+
+                        if (user == null || user.IsActive != true)
+                        {
+                            // User is inactive or deleted, log them out
+                            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+                            // If it's an API request, return 401 Unauthorized
+                            if (context.Request.Path.StartsWithSegments("/api"))
+                            {
+                                context.Response.StatusCode = 401;
+                                context.Response.ContentType = "application/json";
+
+                                var response = new ApiErrorResponse
+                                {
+                                    Message = "Your account has been deactivated",
+                                    ErrorMessages = new string[] { "Please contact support for more information" }
+                                };
+
+                                await context.Response.WriteAsJsonAsync(response);
+                                return;
+                            }
+                            else
+                            {
+                                // For non-API requests, redirect to login page
+                                context.Response.Redirect("/login");
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                await next();
+            });
             // Configure detailed exception handling
             app.UseExceptionHandler(appError =>
             {

@@ -16,16 +16,16 @@ namespace Jumia_Clone.Controllers
     public class CartsController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
-        private readonly IMemoryCache _cache;
+        //private readonly IMemoryCache _cache;
         private readonly ILogger<CartsController> _logger;
 
         public CartsController(
             ICartRepository cartRepository,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<CartsController> logger)
         {
             _cartRepository = cartRepository;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -50,13 +50,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 int customerId = GetCurrentCustomerId();
-                var cacheKey = $"cart_{customerId}";
+                //var cacheKey = $"cart_{customerId}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<CartDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<CartDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var cart = await _cartRepository.GetCartByCustomerIdAsync(customerId);
 
@@ -68,11 +68,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -96,13 +96,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 int customerId = GetCurrentCustomerId();
-                var cacheKey = $"cart_summary_{customerId}";
+                //var cacheKey = $"cart_summary_{customerId}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<CartSummaryDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<CartSummaryDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var cartSummary = await _cartRepository.GetCartSummaryByCustomerIdAsync(customerId);
 
@@ -114,11 +114,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -197,7 +197,7 @@ namespace Jumia_Clone.Controllers
                 var cartItem = await _cartRepository.AddCartItemAsync(customerId, cartItemDto);
 
                 // Invalidate cache
-                InvalidateCartCache(customerId);
+                //InvalidateCartCache(customerId);
 
                 return CreatedAtAction(
                     nameof(GetCartItem),
@@ -283,7 +283,7 @@ namespace Jumia_Clone.Controllers
                 var cartItem = await _cartRepository.UpdateCartItemQuantityAsync(customerId, updateCartItemDto);
 
                 // Invalidate cache
-                InvalidateCartCache(customerId);
+                //InvalidateCartCache(customerId);
 
                 return Ok(new ApiResponse<CartItemDto>
                 {
@@ -348,7 +348,7 @@ namespace Jumia_Clone.Controllers
                 var result = await _cartRepository.RemoveCartItemAsync(customerId, id);
 
                 // Invalidate cache
-                InvalidateCartCache(customerId);
+                //InvalidateCartCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -384,7 +384,7 @@ namespace Jumia_Clone.Controllers
                 var result = await _cartRepository.ClearCartAsync(customerId);
 
                 // Invalidate cache
-                InvalidateCartCache(customerId);
+                //InvalidateCartCache(customerId);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -405,13 +405,13 @@ namespace Jumia_Clone.Controllers
         }
 
         // Helper method to invalidate cart cache
-        private void InvalidateCartCache(int customerId)
-        {
-            var cartCacheKey = $"cart_{customerId}";
-            var summaryCartCacheKey = $"cart_summary_{customerId}";
+        //private void InvalidateCartCache(int customerId)
+        //{
+        //    var cartCacheKey = $"cart_{customerId}";
+        //    var summaryCartCacheKey = $"cart_summary_{customerId}";
 
-            _cache.Remove(cartCacheKey);
-            _cache.Remove(summaryCartCacheKey);
-        }
+        //    _cache.Remove(cartCacheKey);
+        //    _cache.Remove(summaryCartCacheKey);
+        //}
     }
 }

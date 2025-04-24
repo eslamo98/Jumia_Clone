@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Jumia_Clone.Models.Constants;
 
 namespace Jumia_Clone.Controllers
 {
@@ -16,18 +17,18 @@ namespace Jumia_Clone.Controllers
     {
         private readonly IOrderRepository _orderRepository;
         private readonly IMapper _mapper;
-        private readonly IMemoryCache _cache;
+        //private readonly IMemoryCache _cache;
         private readonly ILogger<OrdersController> _logger;
 
         public OrdersController(
             IOrderRepository orderRepository,
             IMapper mapper,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<OrdersController> logger)
         {
             _orderRepository = orderRepository;
             _mapper = mapper;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -41,13 +42,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 // Create a cache key based on parameters
-                var cacheKey = $"orders_all_{pagination.PageNumber}_{pagination.PageSize}";
+                //var cacheKey = $"orders_all_{pagination.PageNumber}_{pagination.PageSize}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -80,7 +81,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -94,7 +95,89 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+        // POST: api/orders/{id}/cancel
+        [HttpPost("{id}/cancel")]
+        [Authorize(Roles = $"{UserRoles.Customer},{UserRoles.Admin}")]
+        [EnableRateLimiting("standard")]
+        public async Task<IActionResult> CancelOrder(int id)
+        {
+            try
+            {
+                var result = await _orderRepository.CancelOrderAsync(id, 0);
 
+                if (!result.Success)
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Failed to cancel order",
+                        ErrorMessages = new string[] { result.Message }
+                    });
+                }
+
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = result.Message,
+                    Data = null
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error canceling order {OrderId}", id);
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while canceling the order",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
+        // POST: api/orders/suborders/{id}/cancel
+        [HttpPost("suborders/{id}/cancel")]
+        [Authorize(Roles = "Seller")]
+        [EnableRateLimiting("standard")]
+        public async Task<IActionResult> CancelSubOrder(int id, [FromQuery] int sellerId)
+        {
+            try
+            {
+                
+                if (string.IsNullOrEmpty(sellerId.ToString()) || sellerId == 0)
+                {
+                    return Unauthorized(new ApiErrorResponse
+                    {
+                        Message = "Invalid seller credentials",
+                        ErrorMessages = new string[] { "You must be logged in as a seller to cancel a suborder" }
+                    });
+                }
+
+                var result = await _orderRepository.CancelSubOrderAsync(id, sellerId);
+
+                if (!result.Success)
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Failed to cancel suborder",
+                        ErrorMessages = new string[] { result.Message }
+                    });
+                }
+
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = result.Message,
+                    Data = null
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error canceling suborder {SubOrderId}", id);
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while canceling the suborder",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
         // GET: api/orders/customer/{customerId}
         [HttpGet("customer/{customerId}")]
         [EnableRateLimiting("standard")]
@@ -104,13 +187,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 // Create a cache key based on parameters
-                var cacheKey = $"orders_customer_{customerId}_{pagination.PageNumber}_{pagination.PageSize}";
+                //var cacheKey = $"orders_customer_{customerId}_{pagination.PageNumber}_{pagination.PageSize}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -139,11 +222,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -157,7 +240,156 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+        // PUT: api/orders/{id}/status
+        [HttpPut("{id}/status")]
+        [Authorize(Roles = "Admin")]
+        [EnableRateLimiting("standard")]
+        public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusDto statusDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid input",
+                        ErrorMessages = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToArray()
+                    });
+                }
 
+                // Validate the status value
+                if (!OrderStatus.AllowedValues.Contains(statusDto.Status))
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid order status",
+                        ErrorMessages = new[] { $"Valid statuses are: {string.Join(", ", OrderStatus.AllowedValues)}" }
+                    });
+                }
+
+                // Check if order exists
+                if (!await _orderRepository.OrderExistsAsync(id))
+                {
+                    return NotFound(new ApiErrorResponse
+                    {
+                        Message = "Order not found",
+                        ErrorMessages = new[] { $"Order with ID {id} does not exist" }
+                    });
+                }
+
+                // Update the order status
+                var updateDto = new UpdateOrderInputDto
+                {
+                    OrderStatus = statusDto.Status
+                };
+
+                var updatedOrder = await _orderRepository.UpdateOrderAsync(id, updateDto);
+
+                return Ok(new ApiResponse<OrderDto>
+                {
+                    Success = true,
+                    Message = "Order status updated successfully",
+                    Data = updatedOrder
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status for order {OrderId}", id);
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating the order status",
+                    ErrorMessages = new[] { ex.Message }
+                });
+            }
+        }
+
+        // PUT: api/orders/suborders/{id}/status
+        [HttpPut("suborders/{id}/status")]
+        [Authorize(Roles = "Admin,Seller")]
+        [EnableRateLimiting("standard")]
+        public async Task<IActionResult> UpdateSubOrderStatus(int id, [FromBody] UpdateSubOrderStatusDto statusDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid input",
+                        ErrorMessages = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .ToArray()
+                    });
+                }
+
+                // Validate the status value
+                if (!SubOrderStatus.AllowedValues.Contains(statusDto.Status))
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid suborder status",
+                        ErrorMessages = new[] { $"Valid statuses are: {string.Join(", ", SubOrderStatus.AllowedValues)}" }
+                    });
+                }
+
+                // For sellers, verify they own this suborder
+                if (User.IsInRole("Seller"))
+                {
+                    var sellerId = User.FindFirst("SellerId")?.Value;
+                    if (string.IsNullOrEmpty(sellerId) || !int.TryParse(sellerId, out int sellerIdInt))
+                    {
+                        return Unauthorized(new ApiErrorResponse
+                        {
+                            Message = "Invalid seller credentials",
+                            ErrorMessages = new[] { "You must be logged in as a seller to update a suborder" }
+                        });
+                    }
+
+                    var subOrder = await _orderRepository.GetSubOrderByIdAsync(id);
+                    if (subOrder == null)
+                    {
+                        return NotFound(new ApiErrorResponse
+                        {
+                            Message = "Suborder not found",
+                            ErrorMessages = new[] { $"Suborder with ID {id} does not exist" }
+                        });
+                    }
+
+                    if (subOrder.SellerId != sellerIdInt)
+                    {
+                        return Forbid();
+                    }
+                }
+
+                // Update the suborder status
+                var updateDto = new UpdateSubOrderInputDto
+                {
+                    Status = statusDto.Status
+                };
+
+                var updatedSubOrder = await _orderRepository.UpdateSubOrderStatusAsync(id, updateDto);
+
+                return Ok(new ApiResponse<SubOrderDto>
+                {
+                    Success = true,
+                    Message = "Suborder status updated successfully",
+                    Data = updatedSubOrder
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating status for suborder {SubOrderId}", id);
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating the suborder status",
+                    ErrorMessages = new[] { ex.Message }
+                });
+            }
+        }
         // GET: api/orders/{id}
         [HttpGet("{id}")]
         [EnableRateLimiting("standard")]
@@ -167,13 +399,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 // Create cache key
-                var cacheKey = $"order_{id}";
+                //var cacheKey = $"order_{id}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<OrderDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<OrderDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var order = await _orderRepository.GetOrderByIdAsync(id);
 
@@ -195,11 +427,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -236,7 +468,7 @@ namespace Jumia_Clone.Controllers
                 var createdOrder = await _orderRepository.CreateOrderAsync(orderDto);
 
                 // Invalidate cache for customer's orders
-                InvalidateCustomerOrdersCache(orderDto.CustomerId);
+                // InvalidateCustomerOrdersCache(orderDto.CustomerId);
 
                 return CreatedAtAction(
                     nameof(GetById),
@@ -301,9 +533,9 @@ namespace Jumia_Clone.Controllers
                 var updatedOrder = await _orderRepository.UpdateOrderAsync(id, orderDto);
 
                 // Invalidate caches
-                InvalidateOrderCache(id);
-                // Since we don't know the customer ID here, we'll invalidate all customer-related caches
-                InvalidateAllOrderCaches();
+                //InvalidateOrderCache(id);
+                //// Since we don't know the customer ID here, we'll invalidate all customer-related caches
+                //InvalidateAllOrderCaches();
 
                 return Ok(new ApiResponse<OrderDto>
                 {
@@ -361,8 +593,8 @@ namespace Jumia_Clone.Controllers
                 var updatedOrder = await _orderRepository.UpdateOrderPaymentStatusAsync(id, paymentStatus);
 
                 // Invalidate caches
-                InvalidateOrderCache(id);
-                InvalidateAllOrderCaches();
+                //InvalidateOrderCache(id);
+                //InvalidateAllOrderCaches();
 
                 return Ok(new ApiResponse<OrderDto>
                 {
@@ -403,8 +635,8 @@ namespace Jumia_Clone.Controllers
                 var result = await _orderRepository.DeleteOrderAsync(id);
 
                 // Invalidate caches
-                InvalidateOrderCache(id);
-                InvalidateAllOrderCaches();
+                //InvalidateOrderCache(id);
+                //InvalidateAllOrderCaches();
 
                 return Ok(new ApiResponse<object>
                 {
@@ -433,13 +665,13 @@ namespace Jumia_Clone.Controllers
             try
             {
                 // Create cache key
-                var cacheKey = $"suborder_{id}";
+                //var cacheKey = $"suborder_{id}";
 
-                // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<SubOrderDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //// Try to get from cache first
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<SubOrderDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var subOrder = await _orderRepository.GetSubOrderByIdAsync(id);
 
@@ -461,11 +693,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -492,10 +724,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"suborders_seller_{sellerId}_{pagination.PageNumber}_{pagination.PageSize}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -528,7 +760,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -585,10 +817,10 @@ namespace Jumia_Clone.Controllers
                 var updatedSubOrder = await _orderRepository.UpdateSubOrderStatusAsync(id, subOrderDto);
 
                 // Invalidate caches
-                InvalidateSubOrderCache(id);
-                InvalidateSellerSubOrdersCache(subOrder.SellerId);
-                InvalidateOrderCache(subOrder.OrderId);
-                InvalidateAllOrderCaches();
+                //InvalidateSubOrderCache(id);
+                //InvalidateSellerSubOrdersCache(subOrder.SellerId);
+                //InvalidateOrderCache(subOrder.OrderId);
+                //InvalidateAllOrderCaches();
 
                 return Ok(new ApiResponse<SubOrderDto>
                 {
@@ -630,10 +862,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"orders_payment_status_{status}_{pagination.PageNumber}_{pagination.PageSize}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -666,7 +898,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -694,10 +926,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"suborders_status_{status}_{pagination.PageNumber}_{pagination.PageSize}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -726,11 +958,11 @@ namespace Jumia_Clone.Controllers
                 };
 
                 // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
+                //var cacheEntryOptions = new MemoryCacheEntryOptions()
+                //    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                //    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -746,36 +978,36 @@ namespace Jumia_Clone.Controllers
         }
 
         // Cache invalidation helpers
-        private void InvalidateOrderCache(int orderId)
-        {
-            var cacheKey = $"order_{orderId}";
-            _cache.Remove(cacheKey);
-        }
+        //private void InvalidateOrderCache(int orderId)
+        //{
+        //    var cacheKey = $"order_{orderId}";
+        //    _cache.Remove(cacheKey);
+        //}
 
-        private void InvalidateSubOrderCache(int subOrderId)
-        {
-            var cacheKey = $"suborder_{subOrderId}";
-            _cache.Remove(cacheKey);
-        }
+        //private void InvalidateSubOrderCache(int subOrderId)
+        //{
+        //    var cacheKey = $"suborder_{subOrderId}";
+        //    _cache.Remove(cacheKey);
+        //}
 
-        private void InvalidateCustomerOrdersCache(int customerId)
-        {
-            var listCacheKeyPattern = $"orders_customer_{customerId}_";
-            _cache.Remove(listCacheKeyPattern);
-        }
+        //private void InvalidateCustomerOrdersCache(int customerId)
+        //{
+        //    var listCacheKeyPattern = $"orders_customer_{customerId}_";
+        //    _cache.Remove(listCacheKeyPattern);
+        //}
 
-        private void InvalidateSellerSubOrdersCache(int sellerId)
-        {
-            var listCacheKeyPattern = $"suborders_seller_{sellerId}_";
-            _cache.Remove(listCacheKeyPattern);
-        }
+        //private void InvalidateSellerSubOrdersCache(int sellerId)
+        //{
+        //    var listCacheKeyPattern = $"suborders_seller_{sellerId}_";
+        //    _cache.Remove(listCacheKeyPattern);
+        //}
 
-        private void InvalidateAllOrderCaches()
-        {
-            // This is a simplified approach - in production you might want to be more targeted
-            _cache.Remove("orders_all_");
-            _cache.Remove("orders_payment_status_");
-            _cache.Remove("suborders_status_");
-        }
+        //private void InvalidateAllOrderCaches()
+        //{
+        //    // This is a simplified approach - in production you might want to be more targeted
+        //    _cache.Remove("orders_all_");
+        //    _cache.Remove("orders_payment_status_");
+        //    _cache.Remove("suborders_status_");
+        //}
     }
 }
