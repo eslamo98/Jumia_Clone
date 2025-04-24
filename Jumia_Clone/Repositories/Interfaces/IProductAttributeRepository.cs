@@ -1,4 +1,5 @@
-﻿using Jumia_Clone.Models.DTOs.ProductAttributeDTOs;
+﻿using Jumia_Clone.Models.DTOs.GeneralDTOs;
+using Jumia_Clone.Models.DTOs.ProductAttributeDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 
 namespace Jumia_Clone.Repositories.Interfaces
@@ -11,7 +12,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task DeleteProductAttributeAsync(int attributeId);
         Task<ProductAttributeDto> GetProductAttributeByIdAsync(int attributeId);
         Task<IEnumerable<ProductAttributeDto>> GetProductAttributesBySubcategoryAsync(int subcategoryId);
-
+        Task<List<ProductAttributeDto>> GetProductAttributes(PaginationDto pagination, bool include_details);
+        Task<int> GetCountAsync();
         // ProductAttributeValue Methods
         Task<ProductAttributeValueDto> AddProductAttributeValueAsync(CreateProductAttributeValueDto attributeValueDto);
         Task<ProductAttributeValueDto> UpdateProductAttributeValueAsync(int valueId, UpdateProductAttributeValueDto attributeValueDto);

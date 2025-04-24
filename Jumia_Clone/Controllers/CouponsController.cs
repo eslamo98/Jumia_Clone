@@ -14,7 +14,7 @@ namespace Jumia_Clone.Controllers
     public class CouponsController : ControllerBase
     {
         private readonly ICouponRepository _couponRepository;
-        private readonly IMemoryCache _cache;
+        ////private readonly IMemoryCache _cache;
         private readonly ILogger<CouponsController> _logger;
 
         public CouponsController(
@@ -23,7 +23,7 @@ namespace Jumia_Clone.Controllers
             ILogger<CouponsController> logger)
         {
             _couponRepository = couponRepository;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -49,9 +49,9 @@ namespace Jumia_Clone.Controllers
         {
             if (couponId > 0)
             {
-                _cache.Remove($"coupon_{couponId}");
+                //_cache.Remove($"coupon_{couponId}");
             }
-            _cache.Remove("coupons_list");
+            //_cache.Remove("coupons_list");
         }
 
         #endregion
@@ -73,10 +73,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"coupons_list_{pagination.PageNumber}_{pagination.PageSize}_{isActive}_{searchTerm}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -109,7 +109,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -135,10 +135,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"coupon_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<CouponDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<CouponDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var coupon = await _couponRepository.GetCouponByIdAsync(id);
 
@@ -164,7 +164,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -408,10 +408,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"user_coupons_{customerId}_{includeUsed}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<UserCouponDto>> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<IEnumerable<UserCouponDto>> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var userCoupons = await _couponRepository.GetUserCouponsAsync(customerId, includeUsed);
 
@@ -427,7 +427,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -485,8 +485,8 @@ namespace Jumia_Clone.Controllers
                 var userCoupon = await _couponRepository.AssignCouponToUserAsync(assignDto);
 
                 // Invalidate user coupons cache
-                _cache.Remove($"user_coupons_{assignDto.CustomerId}_false");
-                _cache.Remove($"user_coupons_{assignDto.CustomerId}_true");
+                //_cache.Remove($"user_coupons_{assignDto.CustomerId}_false");
+                //_cache.Remove($"user_coupons_{assignDto.CustomerId}_true");
 
                 return Ok(new ApiResponse<UserCouponDto>
                 {
@@ -562,8 +562,8 @@ namespace Jumia_Clone.Controllers
                 var result = await _couponRepository.MarkCouponAsUsedAsync(id);
 
                 // Invalidate user coupons cache
-                _cache.Remove($"user_coupons_{userCoupon.CustomerId}_false");
-                _cache.Remove($"user_coupons_{userCoupon.CustomerId}_true");
+                //_cache.Remove($"user_coupons_{userCoupon.CustomerId}_false");
+                //_cache.Remove($"user_coupons_{userCoupon.CustomerId}_true");
 
                 return Ok(new ApiResponse<object>
                 {

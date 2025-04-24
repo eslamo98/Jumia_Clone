@@ -16,7 +16,7 @@ namespace Jumia_Clone.Controllers
     {
         private readonly IAddressRepository _addressRepository;
         private readonly IMapper _mapper;
-        private readonly IMemoryCache _cache;
+        //private readonly IMemoryCache _cache;
         private readonly ILogger<AddressesController> _logger;
 
         public AddressesController(
@@ -27,7 +27,7 @@ namespace Jumia_Clone.Controllers
         {
             _addressRepository = addressRepository;
             _mapper = mapper;
-            _cache = cache;
+            //_cache = cache;
             _logger = logger;
         }
 
@@ -43,10 +43,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"addresses_{userId}_{pagination.PageNumber}_{pagination.PageSize}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<object> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 // Make sure pagination is valid
                 if (pagination.PageNumber < 1)
@@ -79,7 +79,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -106,10 +106,10 @@ namespace Jumia_Clone.Controllers
                 var cacheKey = $"address_{id}";
 
                 // Try to get from cache first
-                if (_cache.TryGetValue(cacheKey, out ApiResponse<AddressDto> cachedResult))
-                {
-                    return Ok(cachedResult);
-                }
+                //if (_cache.TryGetValue(cacheKey, out ApiResponse<AddressDto> cachedResult))
+                //{
+                //    return Ok(cachedResult);
+                //}
 
                 var address = await _addressRepository.GetAddressByIdAsync(id);
 
@@ -135,7 +135,7 @@ namespace Jumia_Clone.Controllers
                     .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
                     .SetSlidingExpiration(TimeSpan.FromMinutes(1));
 
-                _cache.Set(cacheKey, response, cacheEntryOptions);
+                //_cache.Set(cacheKey, response, cacheEntryOptions);
 
                 return Ok(response);
             }
@@ -172,7 +172,7 @@ namespace Jumia_Clone.Controllers
                 var createdAddress = await _addressRepository.CreateAddressAsync(addressDto);
 
                 // Invalidate cache for user's addresses
-                InvalidateUserAddressesCache(addressDto.UserId);
+                //InvalidateUserAddressesCache(addressDto.UserId);
 
                 return CreatedAtAction(
                     nameof(GetById),
@@ -237,8 +237,8 @@ namespace Jumia_Clone.Controllers
                 var updatedAddress = await _addressRepository.UpdateAddressAsync(id, addressDto);
 
                 // Invalidate caches
-                InvalidateUserAddressesCache(addressDto.UserId);
-                InvalidateAddressCache(id);
+                //InvalidateUserAddressesCache(addressDto.UserId);
+                //InvalidateAddressCache(id);
 
                 return Ok(new ApiResponse<AddressDto>
                 {
@@ -287,7 +287,7 @@ namespace Jumia_Clone.Controllers
                 var result = await _addressRepository.DeleteAddressAsync(id);
 
                 // Invalidate caches
-                InvalidateAddressCache(id);
+                //InvalidateAddressCache(id);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -308,23 +308,23 @@ namespace Jumia_Clone.Controllers
         }
 
         // Cache invalidation helpers
-        private void InvalidateUserAddressesCache(int userId)
-        {
-            // Generic approach that doesn't require listing all keys
-            var cacheKeys = new List<string>();
+        ////private void InvalidateUserAddressesCache(int userId)
+        //{
+        //    // Generic approach that doesn't require listing all keys
+        //    var cacheKeys = new List<string>();
 
-            // We know the pattern of our cache keys, so we can remove specific ones
-            // For addresses list we add a simple placeholder that matches all page numbers and sizes
-            var listCacheKeyPattern = $"addresses_{userId}_";
+        //    // We know the pattern of our cache keys, so we can remove specific ones
+        //    // For addresses list we add a simple placeholder that matches all page numbers and sizes
+        //    var listCacheKeyPattern = $"addresses_{userId}_";
 
-            // Remove all entries from cache that start with this pattern
-            _cache.Remove(listCacheKeyPattern);
-        }
+        //    // Remove all entries from cache that start with this pattern
+        //    //_cache.Remove(listCacheKeyPattern);
+        //}
 
-        private void InvalidateAddressCache(int addressId)
-        {
-            var cacheKey = $"address_{addressId}";
-            _cache.Remove(cacheKey);
-        }
+        ////private void InvalidateAddressCache(int addressId)
+        //{
+        //    var cacheKey = $"address_{addressId}";
+        //    //_cache.Remove(cacheKey);
+        //}
     }
 }

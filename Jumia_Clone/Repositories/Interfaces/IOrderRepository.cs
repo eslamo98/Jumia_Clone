@@ -59,5 +59,8 @@ namespace Jumia_Clone.Repositories.Interfaces
 
         // Get count of SubOrders by status
         Task<int> GetSubOrdersCountByStatusAsync(string status);
+
+        Task<(bool Success, string Message)> CancelOrderAsync(int orderId, int customerId);
+        Task<(bool Success, string Message)> CancelSubOrderAsync(int subOrderId, int sellerId);
     }
 }

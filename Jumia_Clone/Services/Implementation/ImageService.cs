@@ -142,33 +142,32 @@ namespace Jumia_Clone.Services.Implementation
             }
 
             // Create directory structure if it doesn't exist
-            // First level: entity type folder (e.g., Products, Categories)
             string entityTypeFolder = entityType.ToString() + "s"; // Add 's' to make it plural
-
-            // Second level: specific entity folder (e.g., product-name)
             string sanitizedEntityName = SanitizeFileName(entityName);
 
-            // Combined path: Images/Products/product-name/
-            string directoryPath = Path.Combine("Images", entityTypeFolder, sanitizedEntityName);
+            // Get the absolute path for the Images directory
+            string baseDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+            string imagesDirectory = Path.Combine(baseDirectory, "Images");
 
-            if (!Directory.Exists(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
+            // Create the complete directory path
+            string directoryPath = Path.Combine(imagesDirectory, entityTypeFolder, sanitizedEntityName);
+
+            // Ensure all directory levels exist
+            Directory.CreateDirectory(directoryPath);
 
             // Create filename using GUID + extension
             string fileName = $"{Guid.NewGuid()}.jpg";
-            string filePath = Path.Combine(directoryPath, fileName);
+            string fullFilePath = Path.Combine(directoryPath, fileName);
 
             // Save the image to the file system
-            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            using (var fileStream = new FileStream(fullFilePath, FileMode.Create))
             {
                 imageStream.Position = 0; // Reset stream position
                 await imageStream.CopyToAsync(fileStream);
             }
 
-            // Return the relative path to be stored in the database
-            return Path.Combine(_imagesFolder, entityTypeFolder, sanitizedEntityName, fileName);
+            // Return the relative path (from wwwroot) to be stored in the database
+            return Path.Combine("Images", entityTypeFolder, sanitizedEntityName, fileName).Replace("\\", "/");
         }
     }
 }

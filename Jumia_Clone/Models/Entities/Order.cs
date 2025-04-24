@@ -29,7 +29,7 @@ public class Order
     public string PaymentStatus { get; set; }
 
     public DateTime? CreatedAt { get; set; }
-
+    public string OrderStatus { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     public int? AffiliateId { get; set; }

@@ -1,11 +1,13 @@
 ﻿using Jumia_Clone.Data;
 using Jumia_Clone.Helpers;
 using Jumia_Clone.Models.Constants;
+using Jumia_Clone.Models.DTOs.GeneralDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeDTOs;
 using Jumia_Clone.Models.DTOs.ProductAttributeValueDTOs;
 using Jumia_Clone.Models.Entities;
 using Jumia_Clone.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace Jumia_Clone.Repositories.Implementation
 {
@@ -152,6 +154,38 @@ namespace Jumia_Clone.Repositories.Implementation
                 IsRequired = attribute.IsRequired ?? false,
                 IsFilterable = attribute.IsFilterable ?? true
             };
+        }
+
+        public async Task<int> GetCountAsync()
+        {
+            return await _context.ProductAttributes.CountAsync();
+        }
+        public async Task<List<ProductAttributeDto>> GetProductAttributes(PaginationDto pagination, bool include_details)
+        {
+            var attributes = await _context.ProductAttributes
+                .Include(pa => pa.Subcategory).Skip((pagination.PageNumber - 1) * pagination.PageSize).Take(pagination.PageSize).ToListAsync();
+
+            if (attributes == null)
+                throw new KeyNotFoundException($"Product Attributes not found");
+            List<ProductAttributeDto> result = new List<ProductAttributeDto>();
+
+            foreach(var attribute in attributes)
+            {
+                var attr = new ProductAttributeDto
+                {
+                    AttributeId = attribute.AttributeId,
+                    SubcategoryId = attribute.SubcategoryId,
+                    SubcategoryName = attribute.Subcategory.Name,
+                    Name = attribute.Name,
+                    Type = attribute.Type,
+                    PossibleValues = attribute.PossibleValues,
+                    IsRequired = attribute.IsRequired ?? false,
+                    IsFilterable = attribute.IsFilterable ?? true
+                };
+
+                result.Add(attr);
+            }
+            return result;
         }
 
         public async Task<IEnumerable<ProductAttributeDto>> GetProductAttributesBySubcategoryAsync(int subcategoryId)
