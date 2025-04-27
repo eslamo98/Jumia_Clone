@@ -22,7 +22,7 @@ namespace Jumia_Clone.Controllers
         public AddressesController(
             IAddressRepository addressRepository,
             IMapper mapper,
-            IMemoryCache cache,
+            ////IMemoryCache cache,
             ILogger<AddressesController> logger)
         {
             _addressRepository = addressRepository;
@@ -33,8 +33,7 @@ namespace Jumia_Clone.Controllers
 
         // GET: api/addresses
         [HttpGet]
-        [EnableRateLimiting("standard")]
-        [ResponseCache(Duration = 60)]
+
         public async Task<IActionResult> GetAll([FromQuery] PaginationDto pagination, [FromQuery] int userId)
         {
             try
@@ -96,8 +95,7 @@ namespace Jumia_Clone.Controllers
 
         // GET: api/addresses/{id}
         [HttpGet("{id}")]
-        [EnableRateLimiting("standard")]
-        [ResponseCache(Duration = 60)]
+       
         public async Task<IActionResult> GetById(int id)
         {
             try
@@ -152,7 +150,7 @@ namespace Jumia_Clone.Controllers
 
         // POST: api/addresses
         [HttpPost]
-        [EnableRateLimiting("strict")]
+
         public async Task<IActionResult> Create([FromBody] CreateAddressInputDto addressDto)
         {
             if (!ModelState.IsValid)
@@ -198,7 +196,7 @@ namespace Jumia_Clone.Controllers
 
         // PUT: api/addresses/{id}
         [HttpPut("{id}")]
-        [EnableRateLimiting("strict")]
+
         public async Task<IActionResult> Update(int id, [FromBody] UpdateAddressInputDto addressDto)
         {
             if (id != addressDto.AddressId)
@@ -269,7 +267,7 @@ namespace Jumia_Clone.Controllers
 
         // DELETE: api/addresses/{id}
         [HttpDelete("{id}")]
-        [EnableRateLimiting("strict")]
+
         public async Task<IActionResult> Delete(int id)
         {
             try

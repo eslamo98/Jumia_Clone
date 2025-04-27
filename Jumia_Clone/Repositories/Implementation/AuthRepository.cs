@@ -219,7 +219,8 @@ namespace Jumia_Clone.Repositories.Implementation
                     LastName = user.LastName,
                     UserType = user.UserType,
                     Token = tokenResponse.Token,
-                    RefreshToken = tokenResponse.RefreshToken
+                    RefreshToken = tokenResponse.RefreshToken,
+                    EntityId = user.UserType.ToLower() == UserRoles.Customer.ToLower() ? user.Customer.CustomerId : user.UserType.ToLower() == UserRoles.Admin.ToLower() ? user.Admin.AdminId : user.Seller.SellerId
                 };
             }
             catch (Exception)

@@ -4,6 +4,7 @@ namespace Jumia_Clone.Models.DTOs.ProductVariantDTOs2
 {
     public class CreateProductBaseVariantDto
     {
+        public int? VariantId { get; set; }
         public string VariantName { get; set; }
         public decimal Price { get; set; }
         public decimal? DiscountPercentage { get; set; }

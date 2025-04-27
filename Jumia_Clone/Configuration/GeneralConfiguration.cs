@@ -233,6 +233,7 @@ namespace Jumia_Clone.Configuration
         }
         private static void RegisterServices(IServiceCollection services)
         {
+            services.AddHttpClient<IPaymentService, PaymobPaymentService>();
             // JWT Service
             services.AddScoped<JwtService>();
 
@@ -241,6 +242,7 @@ namespace Jumia_Clone.Configuration
 
             // Images Service
             services.AddScoped<IImageService, ImageService>();
+           
 
             services.AddAutoMapper(cfg =>
             {

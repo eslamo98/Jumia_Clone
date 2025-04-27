@@ -94,7 +94,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     address.IsDefault = true;
                 }
 
-                _context.Addresses.Add(address);
+                 _context.Addresses.Add(address);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 

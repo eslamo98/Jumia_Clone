@@ -19,7 +19,7 @@ namespace Jumia_Clone.Controllers
 
         public CouponsController(
             ICouponRepository couponRepository,
-            IMemoryCache cache,
+            //IMemoryCache cache,
             ILogger<CouponsController> logger)
         {
             _couponRepository = couponRepository;
