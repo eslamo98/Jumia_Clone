@@ -27,7 +27,7 @@ namespace Jumia_Clone.Controllers
         public UsersController(
             IUserRepository userRepository,
             IImageService imageService,
-            //IMemoryCache cache,
+            ////IMemoryCache cache,
             ILogger<UsersController> logger,
             IMapper mapper
             )

@@ -13,7 +13,8 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<IEnumerable<ProductDto>> GetAllProductsAsync(PaginationDto pagination, ProductFilterDto filter = null);
         public Task<ProductDto> CreateProductAsync(CreateProductInputDto productDto, bool isAdmin = false);
         public Task<int> GetProductsCount();
-        Task<ProductDto> UpdateProductAsync(int id, UpdateProductInputDto productDto);
+        Task<bool> UpdateProductAsync(UpdateProductInputDto productDto);
+        Task<bool> UpdateProductAvailabilty(int productId, bool isAvailable);
         Task DeleteProductAsync(int id);
 
         // Admin operations

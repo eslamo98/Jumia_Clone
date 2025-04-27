@@ -33,7 +33,7 @@ namespace Jumia_Clone.Controllers
             IProductVariantsRepository repository,
             IImageService imageService,
             IProductRepository productRepository,
-            //IMemoryCache cache,
+            ////IMemoryCache cache,
             ILogger<ProductVariantsController> logger)
         {
             _repository = repository;

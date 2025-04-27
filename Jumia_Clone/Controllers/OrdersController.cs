@@ -23,7 +23,7 @@ namespace Jumia_Clone.Controllers
         public OrdersController(
             IOrderRepository orderRepository,
             IMapper mapper,
-            //IMemoryCache cache,
+            ////IMemoryCache cache,
             ILogger<OrdersController> logger)
         {
             _orderRepository = orderRepository;

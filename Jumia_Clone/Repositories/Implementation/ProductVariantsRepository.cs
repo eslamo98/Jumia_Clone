@@ -181,7 +181,7 @@ namespace Jumia_Clone.Repositories.Implementation
                 // Check if the variant is used in any orders
                 if (variant.OrderItems.Any())
                 {
-                    throw new InvalidOperationException("Cannot delete variant because it is referenced in orders");
+                    _context.OrderItems.RemoveRange(variant.OrderItems);
                 }
 
                 // Remove from carts
