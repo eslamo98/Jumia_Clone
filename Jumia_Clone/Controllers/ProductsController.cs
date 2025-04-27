@@ -176,7 +176,7 @@ namespace Jumia_Clone.Controllers
         }
         // GET: api/products/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id, [FromQuery] bool includeDetails = false)
+        public async Task<IActionResult> GetById(int id, [FromQuery] bool includeDetails = true)
         {
             try
             {
@@ -387,6 +387,7 @@ namespace Jumia_Clone.Controllers
             }
         }
         // PUT: api/products/{id}
+
         [HttpPut("{id}")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] UpdateProductInputDto productDto)
@@ -395,8 +396,8 @@ namespace Jumia_Clone.Controllers
             {
                 return BadRequest(new ApiErrorResponse
                 {
-                    Message = "Invalid product ID",
-                    ErrorMessages = new string[] { "ID in URL does not match ID in request body" }
+                    Message = "ID mismatch",
+                    ErrorMessages = new[] { "The ID in the URL does not match the ID in the request body" }
                 });
             }
 
@@ -411,63 +412,107 @@ namespace Jumia_Clone.Controllers
                         .ToArray()
                 });
             }
+            // Process attribute values JSON
+            if (!string.IsNullOrEmpty(productDto.ProductAttributeValuesJson))
+            {
+                try
+                {
+                    if (productDto.ProductAttributeValuesJson.StartsWith("'"))
+                    {
+                        productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(1);
+                    }
+                    if (productDto.ProductAttributeValuesJson.EndsWith("'"))
+                    {
+                        productDto.ProductAttributeValuesJson = productDto.ProductAttributeValuesJson.Substring(0, productDto.ProductAttributeValuesJson.Length - 1);
+                    }
+                    productDto.AttributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(productDto.ProductAttributeValuesJson);
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+
+            // Process product variants JSON
+            if (productDto.HasVariants && !string.IsNullOrEmpty(productDto.ProductVariantsJson))
+            {
+                try
+                {
+                    if (productDto.ProductVariantsJson.StartsWith("'"))
+                    {
+                        productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(1);
+                    }
+                    if (productDto.ProductVariantsJson.EndsWith("'"))
+                    {
+                        productDto.ProductVariantsJson = productDto.ProductVariantsJson.Substring(0, productDto.ProductVariantsJson.Length - 1);
+                    }
+                    productDto.Variants = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductBaseVariantDto>>(productDto.ProductVariantsJson);
+
+                    // Validate at least one variant is marked as default
+                    if (!productDto.Variants.Any(v => v.IsDefault))
+                    {
+                        return BadRequest(new ApiErrorResponse
+                        {
+                            Message = "At least one variant must be marked as default",
+                            ErrorMessages = new string[] { "No default variant specified" }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new ApiErrorResponse
+                    {
+                        Message = "Invalid product variants data",
+                        ErrorMessages = new string[] { ex.Message }
+                    });
+                }
+            }
 
             try
             {
-                // Get existing product to check if it exists
-                var existingProduct = await _productRepository.GetProductByIdAsync(id);
-                if (existingProduct == null)
+                var success = await _productRepository.UpdateProductAsync(productDto);
+                if (!success)
                 {
-                    return NotFound(new ApiResponse<object>
+                    return NotFound(new ApiErrorResponse
                     {
                         Message = "Product not found",
-                        Success = false,
-                        Data = null
+                        ErrorMessages = new[] { $"Product with ID {id} was not found" }
                     });
                 }
 
+                // Get the updated product
+                var updatedProduct = await _productRepository.GetProductByIdAsync(id, true);
 
-
-                // Update basic product info
-                var updatedProduct = await _productRepository.UpdateProductAsync(id, productDto);
-
-                // Handle main image update if provided
-                if (productDto.MainImageFile != null && productDto.MainImageFile.Length > 0)
+                // Convert image URLs
+                if (!string.IsNullOrEmpty(updatedProduct.MainImageUrl))
                 {
-                    string entityName = $"{updatedProduct.Name}-{id}";
-                    string imagePath = await _imageService.UpdateImageAsync(
-                        productDto.MainImageFile,
-                        existingProduct.MainImageUrl,
-                        EntityType.Product,
-                        entityName
-                    );
-
-                    // Update the product with the new image path
-                    updatedProduct = await _productRepository.UpdateProductMainImageAsync(id, imagePath);
-
-                    // Add the image URL to the response
-                    updatedProduct.MainImageUrl = _imageService.GetImageUrl(imagePath);
+                    updatedProduct.MainImageUrl = _imageService.GetImageUrl(updatedProduct.MainImageUrl);
                 }
 
-                // Check if product status changed to pending review
-                string statusMessage = updatedProduct.ApprovalStatus == "pending_review"
-                    ? "Product updated successfully (pending review)"
-                    : "Product updated successfully";
+                if (updatedProduct.Images != null)
+                {
+                    foreach (var image in updatedProduct.Images)
+                    {
+                        image.ImageUrl = _imageService.GetImageUrl(image.ImageUrl);
+                    }
+                }
+
+                if (updatedProduct.Variants != null)
+                {
+                    foreach (var variant in updatedProduct.Variants)
+                    {
+                        if (!string.IsNullOrEmpty(variant.VariantImageUrl))
+                        {
+                            variant.VariantImageUrl = _imageService.GetImageUrl(variant.VariantImageUrl);
+                        }
+                    }
+                }
 
                 return Ok(new ApiResponse<ProductDto>
                 {
+                    Message = "Product updated successfully",
                     Data = updatedProduct,
-                    Message = statusMessage,
                     Success = true
-                });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new ApiResponse<object>
-                {
-                    Message = ex.Message,
-                    Success = false,
-                    Data = null
                 });
             }
             catch (Exception ex)
@@ -475,7 +520,7 @@ namespace Jumia_Clone.Controllers
                 return StatusCode(500, new ApiErrorResponse
                 {
                     Message = "An error occurred while updating the product",
-                    ErrorMessages = new string[] { ex.Message }
+                    ErrorMessages = new[] { ex.Message }
                 });
             }
         }
@@ -526,6 +571,64 @@ namespace Jumia_Clone.Controllers
                 });
             }
         }
+
+        // PUT: api/products/{id}/approval-status
+        [HttpPut("{id}/available")]
+        public async Task<IActionResult> UpdateAvailabilty(int id, [FromBody] bool isAvailable)
+        {
+            try
+            {
+               
+
+                var product = await _productRepository.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    return NotFound(new ApiResponse<object>
+                    {
+                        Message = "Product not found",
+                        Success = false,
+                        Data = null
+                    });
+                }
+
+                // Update the approval status
+                var result = await _productRepository.UpdateProductAvailabilty(id, isAvailable);
+
+                if(result)
+                {
+
+                    return Ok(new ApiResponse<object>
+                    {
+                   
+                        Message = $"Product availability updated to {isAvailable}",
+                        Success = true
+                    });
+                }
+
+                return BadRequest(new ApiResponse<object>() {
+                    Message = $"Product availability was not updated!",
+                    Success = false
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Message = ex.Message,
+                    Success = false,
+                    Data = null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiErrorResponse
+                {
+                    Message = "An error occurred while updating the product approval status",
+                    ErrorMessages = new string[] { ex.Message }
+                });
+            }
+        }
+
 
         // PUT: api/products/{id}/approval-status
         [HttpPut("{id}/approval-status")]

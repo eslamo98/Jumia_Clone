@@ -12,6 +12,7 @@ using Jumia_Clone.Models.Enums;
 using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 
 namespace Jumia_Clone.Repositories.Implementation
@@ -20,11 +21,13 @@ namespace Jumia_Clone.Repositories.Implementation
     {
         private readonly ApplicationDbContext _context;
         private readonly IImageService _imageService;
+        private readonly IProductVariantsRepository _productVariantsRepository;
 
-        public ProductRepository(ApplicationDbContext context, IImageService imageService)
+        public ProductRepository(ApplicationDbContext context, IImageService imageService, IProductVariantsRepository productVariantsRepository)
         {
             _context = context;
             _imageService = imageService;
+            _productVariantsRepository = productVariantsRepository;
         }
 
         // Get a product by ID with optional detailed information
@@ -41,6 +44,7 @@ namespace Jumia_Clone.Repositories.Implementation
                     .ThenInclude(sc => sc.Category)
                     .Include(p => p.ProductImages)
                     .Include(p => p.ProductVariants)
+                    .ThenInclude(v => v.VariantAttributes)
                     .Include(p => p.ProductAttributeValues)
                     .ThenInclude(av => av.Attribute)
                     .Include(p => p.Ratings);
@@ -342,117 +346,301 @@ if (productDto.HasVariants && productDto.Variants != null && productDto.Variants
         }
 
         // Update a product
-        public async Task<ProductDto> UpdateProductAsync(int id, UpdateProductInputDto productDto)
+        public async Task<bool> UpdateProductAsync(UpdateProductInputDto productDto)
         {
-            var product = await _context.Products
-                .Include(p => p.ProductVariants)
-                .Include(p => p.ProductAttributeValues)
-                .FirstOrDefaultAsync(p => p.ProductId == id);
-
-            if (product == null)
-                throw new KeyNotFoundException($"Product with ID {id} not found");
-
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                // Check if product has variants and get default variant
-                var defaultVariant = product.ProductVariants?.FirstOrDefault(v => v.IsDefault == true);
+                var product = await _context.Products
+                    .Include(p => p.ProductAttributeValues)
+                    .Include(p => p.ProductImages)
+                    .Include(p => p.ProductVariants)
+                        .ThenInclude(v => v.VariantAttributes)
+                    .FirstOrDefaultAsync(p => p.ProductId == productDto.ProductId);
+
+                if (product == null)
+                {
+                    return false;
+                }
 
                 // Update basic product information
                 product.Name = productDto.Name;
                 product.Description = productDto.Description;
-
-                // If product has variants, use default variant's data, otherwise use input values
-                if (defaultVariant != null)
-                {
-                    product.BasePrice = defaultVariant.Price;
-                    product.DiscountPercentage = defaultVariant.DiscountPercentage;
-                    product.StockQuantity = defaultVariant.StockQuantity;
-                }
-                else
-                {
-                    product.BasePrice = productDto.BasePrice;
-                    product.DiscountPercentage = productDto.DiscountPercentage;
-                    product.StockQuantity = productDto.StockQuantity;
-                }
-
+                product.BasePrice = productDto.BasePrice;
+                product.DiscountPercentage = productDto.DiscountPercentage;
+                product.StockQuantity = productDto.StockQuantity;
                 product.SubcategoryId = productDto.SubcategoryId;
                 product.UpdatedAt = DateTime.UtcNow;
 
-                // If product was approved and seller makes significant changes, reset to pending
-                if (product.ApprovalStatus == ProductApprovalStatus.Approved &&
-                    (product.Name != productDto.Name ||
-                     product.Description != productDto.Description ||
-                     product.SubcategoryId != productDto.SubcategoryId))
+                // Handle main image if provided
+                if (productDto.MainImageFile != null)
                 {
-                    product.ApprovalStatus = ProductApprovalStatus.PendingReview;
-                    product.IsAvailable = false;
+                    // Delete old image if exists
+                    if (!string.IsNullOrEmpty(product.MainImageUrl))
+                    {
+                        await _imageService.DeleteImageAsync(product.MainImageUrl);
+                    }
+
+                    using var stream = productDto.MainImageFile.OpenReadStream();
+                    string imagePath = await _imageService.SaveImageFromStreamAsync(
+                        stream,
+                        EntityType.Product,
+                        product.Name
+                    );
+                    product.MainImageUrl = imagePath;
                 }
 
-                // Process attribute values if provided
-                if (productDto.ProductAttributeValuesJson != null)
+                // Handle additional images
+                if (productDto.AdditionalImageFiles != null && productDto.AdditionalImageFiles.Any())
                 {
-                    // Rest of the method remains the same...
-                    List<CreateProductAttributeValueDto> attributeValues;
-                    try
-                    {
-                        attributeValues = System.Text.Json.JsonSerializer.Deserialize<List<CreateProductAttributeValueDto>>(
-                            productDto.ProductAttributeValuesJson,
-                            new System.Text.Json.JsonSerializerOptions
-                            {
-                                PropertyNameCaseInsensitive = true
-                            }
-                        );
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
+                    int currentMaxOrder = product.ProductImages.Any()
+                        ? product.ProductImages.Max(pi => pi.DisplayOrder ?? 0)
+                        : 0;
 
+                    foreach (var imageFile in productDto.AdditionalImageFiles)
+                    {
+                        using var stream = imageFile.OpenReadStream();
+                        string imagePath = await _imageService.SaveImageFromStreamAsync(
+                            stream,
+                            EntityType.Product,
+                            $"{product.Name}-additional"
+                        );
+
+                        var productImage = new ProductImage
+                        {
+                            ProductId = product.ProductId,
+                            ImageUrl = imagePath,
+                            DisplayOrder = ++currentMaxOrder
+                        };
+
+                        _context.ProductImages.Add(productImage);
+                    }
+                }
+
+                // Delete images if specified
+                if (productDto.ImagesToDelete != null && productDto.ImagesToDelete.Any())
+                {
+                    var imagesToDelete = product.ProductImages
+                        .Where(pi => productDto.ImagesToDelete.Contains(pi.ImageId))
+                        .ToList();
+
+                    foreach (var image in imagesToDelete)
+                    {
+                        await _imageService.DeleteImageAsync(image.ImageUrl);
+                        _context.ProductImages.Remove(image);
+                    }
+                }
+
+                // Process product attribute values
+                if (productDto.AttributeValues != null && productDto.AttributeValues.Any())
+                {
                     // Remove existing attribute values
                     _context.ProductAttributeValues.RemoveRange(product.ProductAttributeValues);
                     await _context.SaveChangesAsync();
 
                     // Add new attribute values
-                    if (attributeValues != null && attributeValues.Any())
+                    foreach (var attrValueDto in productDto.AttributeValues)
                     {
-                        foreach (var attrValue in attributeValues)
+                        var attributeValue = new ProductAttributeValue
                         {
-                            attrValue.ProductId = product.ProductId;
-                            // Validate the attribute exists
-                            var attribute = await _context.ProductAttributes
-                                .FirstOrDefaultAsync(pa => pa.AttributeId == attrValue.AttributeId);
-                            if (attribute == null)
-                                throw new KeyNotFoundException($"Attribute with ID {attrValue.AttributeId} not found");
-
-                            // Validate the attribute value
-                            ValidateAttributeValue(attribute, attrValue.Value);
-
-                            var attributeValue = new ProductAttributeValue
-                            {
-                                ProductId = product.ProductId,
-                                AttributeId = attrValue.AttributeId,
-                                Value = attrValue.Value
-                            };
-                            _context.ProductAttributeValues.Add(attributeValue);
-                        }
-                        await _context.SaveChangesAsync();
+                            ProductId = product.ProductId,
+                            AttributeId = attrValueDto.AttributeId,
+                            Value = attrValueDto.Value
+                        };
+                        _context.ProductAttributeValues.Add(attributeValue);
                     }
                 }
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                // Process product variants
+                if (productDto.HasVariants && productDto.Variants != null)
+                {
+                    // Get existing variants
+                    var existingVariants = product.ProductVariants.ToDictionary(v => v.VariantId);
+                    var updatedVariantIds = productDto.Variants
+                        .Where(v => v.VariantId.HasValue)
+                        .Select(v => v.VariantId.Value)
+                        .ToHashSet();
 
-                return await GetProductByIdAsync(id, true);
+                    // Delete variants that are not in the update list
+                    var variantsToDelete = product.ProductVariants
+                        .Where(v => !updatedVariantIds.Contains(v.VariantId))
+                        .ToList();
+
+                    foreach (var variant in variantsToDelete)
+                    {
+                        if (!string.IsNullOrEmpty(variant.VariantImageUrl))
+                        {
+                            await _imageService.DeleteImageAsync(variant.VariantImageUrl);
+                        }
+                        _context.ProductVariants.Remove(variant);
+                    }
+
+                    // Update or create variants
+                    foreach (var variantDto in productDto.Variants)
+                    {
+                        if (variantDto.VariantId.HasValue && existingVariants.TryGetValue(variantDto.VariantId.Value, out var existingVariant))
+                        {
+                            // Update existing variant
+                            existingVariant.VariantName = variantDto.VariantName;
+                            existingVariant.Price = variantDto.Price;
+                            existingVariant.DiscountPercentage = variantDto.DiscountPercentage;
+                            existingVariant.StockQuantity = variantDto.StockQuantity;
+                            existingVariant.Sku = variantDto.Sku;
+                            existingVariant.IsDefault = variantDto.IsDefault;
+                            existingVariant.IsAvailable = true;
+
+                            // Handle variant image if provided
+                            if (!string.IsNullOrEmpty(variantDto.VariantImageBase64))
+                            {
+                                // Delete old image if exists
+                                if (!string.IsNullOrEmpty(existingVariant.VariantImageUrl))
+                                {
+                                    await _imageService.DeleteImageAsync(existingVariant.VariantImageUrl);
+                                }
+
+                                string base64Data = variantDto.VariantImageBase64;
+                                if (base64Data.Contains(","))
+                                {
+                                    base64Data = base64Data.Substring(base64Data.IndexOf(",") + 1);
+                                }
+
+                                byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                using var memoryStream = new MemoryStream(imageBytes);
+
+                                string imagePath = await _imageService.SaveImageFromStreamAsync(
+                                    memoryStream,
+                                    EntityType.ProductVariant,
+                                    $"{product.Name}-variant-{existingVariant.VariantId}"
+                                );
+
+                                existingVariant.VariantImageUrl = imagePath;
+                            }
+
+                            // Update variant attributes
+                            if (variantDto.VariantAttributes != null)
+                            {
+                                // Remove existing attributes
+                                _context.VariantAttributes.RemoveRange(existingVariant.VariantAttributes);
+
+                                // Add new attributes
+                                foreach (var attr in variantDto.VariantAttributes)
+                                {
+                                    var variantAttribute = new VariantAttribute
+                                    {
+                                        VariantId = existingVariant.VariantId,
+                                        AttributeName = attr.AttributeName,
+                                        AttributeValue = attr.AttributeValue
+                                    };
+                                    _context.VariantAttributes.Add(variantAttribute);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Create new variant
+                            var newVariant = new ProductVariant
+                            {
+                                ProductId = product.ProductId,
+                                VariantName = variantDto.VariantName,
+                                Price = variantDto.Price,
+                                DiscountPercentage = variantDto.DiscountPercentage,
+                                StockQuantity = variantDto.StockQuantity,
+                                Sku = variantDto.Sku,
+                                IsDefault = variantDto.IsDefault,
+                                IsAvailable = true,
+                                VariantImageUrl = ""
+                            };
+
+                            _context.ProductVariants.Add(newVariant);
+                            await _context.SaveChangesAsync();
+
+                            // Handle variant image if provided
+                            if (!string.IsNullOrEmpty(variantDto.VariantImageBase64))
+                            {
+                                string base64Data = variantDto.VariantImageBase64;
+                                if (base64Data.Contains(","))
+                                {
+                                    base64Data = base64Data.Substring(base64Data.IndexOf(",") + 1);
+                                }
+
+                                byte[] imageBytes = Convert.FromBase64String(base64Data);
+                                using var memoryStream = new MemoryStream(imageBytes);
+
+                                string imagePath = await _imageService.SaveImageFromStreamAsync(
+                                    memoryStream,
+                                    EntityType.ProductVariant,
+                                    $"{product.Name}-variant-{newVariant.VariantId}"
+                                );
+
+                                newVariant.VariantImageUrl = imagePath;
+                            }
+
+                            // Add variant attributes
+                            if (variantDto.VariantAttributes != null)
+                            {
+                                foreach (var attr in variantDto.VariantAttributes)
+                                {
+                                    var variantAttribute = new VariantAttribute
+                                    {
+                                        VariantId = newVariant.VariantId,
+                                        AttributeName = attr.AttributeName,
+                                        AttributeValue = attr.AttributeValue
+                                    };
+                                    _context.VariantAttributes.Add(variantAttribute);
+                                }
+                            }
+                        }
+                    }
+
+                    // Ensure only one default variant
+                    var defaultVariants = product.ProductVariants.Where(v => v.IsDefault == true).ToList();
+                    if (defaultVariants.Count > 1)
+                    {
+                        foreach (var variant in defaultVariants.Skip(1))
+                        {
+                            variant.IsDefault = false;
+                        }
+                    }
+                } 
+                else if(!productDto.HasVariants && product.ProductVariants !=null)
+                {
+                    foreach (var item in product.ProductVariants)
+                    {
+                        await _productVariantsRepository.DeleteAsync(item.VariantId);
+                    }
+
+                }
+
+                await _context.SaveChangesAsync();
+                return true;
             }
             catch (Exception)
             {
-                await transaction.RollbackAsync();
+                throw;
+            }
+        
+        }
+
+        public async Task<bool> UpdateProductAvailabilty(int productId, bool isAvailable)
+        {
+            try
+            {
+                var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == productId);
+                if(product == null)
+                {
+                    throw new KeyNotFoundException($"Product with id = {productId} was not found!");
+                }
+
+                product.IsAvailable = isAvailable;
+                await _context.SaveChangesAsync();
+                return true;
+
+            }
+            catch (Exception)
+            {
+                return false;
                 throw;
             }
         }
-
         // Delete a product and all related data
         //public async Task DeleteProductAsync(int id)
         //{
@@ -1309,7 +1497,7 @@ if (productDto.HasVariants && productDto.Variants != null && productDto.Variants
                 "finalprice" => ascending ? query.OrderBy(p => p.BasePrice) : query.OrderByDescending(p => p.BasePrice),
                 "approvalstatus" => ascending ? query.OrderBy(p => p.ApprovalStatus) : query.OrderByDescending(p => p.ApprovalStatus),
                 "isavailable" => ascending ? query.OrderBy(p => p.IsAvailable) : query.OrderByDescending(p => p.IsAvailable),
-                _ => query.OrderBy(p => p.ProductId) // fallback
+                _ => query.OrderByDescending(p => p.ProductId) // fallback
             };
         }
 
