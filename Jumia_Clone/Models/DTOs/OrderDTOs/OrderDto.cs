@@ -4,7 +4,9 @@
     {
         public int OrderId { get; set; }
         public int CustomerId { get; set; }
+        public string CustomerName { get; set; }
         public int AddressId { get; set; }
+        public string Address { get; set; }
         public int? CouponId { get; set; }
         public decimal TotalAmount { get; set; }
         public decimal? DiscountAmount { get; set; }

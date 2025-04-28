@@ -5,6 +5,7 @@
         public int SuborderId { get; set; }
         public int OrderId { get; set; }
         public int SellerId { get; set; }
+        public string SellerName { get; set; }
         public decimal Subtotal { get; set; }
         public string Status { get; set; }
         public DateTime? StatusUpdatedAt { get; set; }

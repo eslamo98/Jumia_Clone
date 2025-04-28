@@ -370,7 +370,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
 
             entity.ToTable("CartItem", tb => tb.HasTrigger("update_cart_timestamp"));
 
-            entity.HasIndex(e => new { e.CartId, e.ProductId }, "UQ_CartItem").IsUnique();
+            entity.HasIndex(e => new { e.CartId, e.ProductId, e.VariantId }, "UQ_CartItem").IsUnique();
 
             entity.Property(e => e.CartItemId).HasColumnName("cart_item_id");
             entity.Property(e => e.CartId).HasColumnName("cart_id");
