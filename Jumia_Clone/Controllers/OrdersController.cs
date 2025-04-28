@@ -76,12 +76,7 @@ namespace Jumia_Clone.Controllers
                     Success = true
                 };
 
-                // Cache the result
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(1));
-
-                //_cache.Set(cacheKey, response, cacheEntryOptions);
+              
 
                 return Ok(response);
             }

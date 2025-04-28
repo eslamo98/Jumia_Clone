@@ -227,20 +227,96 @@ namespace Jumia_Clone.Repositories.Implementation
                 throw;
             }
         }
+        public OrderDto MapOrderToDto(Order order)
+        {
+            if (order == null)
+                return null;
 
+            // Map suborders with their order items
+            var suborders = new List<SubOrderDto>();
+            foreach (var suborder in order.SubOrders)
+            {
+                var orderItems = new List<OrderItemDto>();
+                foreach (var item in suborder.OrderItems)
+                {
+                    orderItems.Add(new OrderItemDto()
+                    {
+                        OrderItemId = item.OrderItemId,
+                        SuborderId = item.SuborderId,
+                        ProductId = item.ProductId,
+                        ProductName = item.Product?.Name, 
+                        VariantName = item.Variant.VariantName,
+                        Quantity = item.Quantity,
+                        PriceAtPurchase = item.PriceAtPurchase,
+                        TotalPrice = item.TotalPrice,
+                        VariantId = item.VariantId
+                    });
+                }
+
+                suborders.Add(new SubOrderDto()
+                {
+                    SuborderId = suborder.SuborderId,
+                    OrderId = suborder.OrderId,
+                    SellerId = suborder.SellerId,
+                    SellerName = suborder.Seller?.User.FirstName + " " + suborder.Seller?.User.LastName, 
+                    Subtotal = suborder.Subtotal,
+                    Status = suborder.Status,
+                    StatusUpdatedAt = suborder.StatusUpdatedAt,
+                    TrackingNumber = suborder.TrackingNumber,
+                    ShippingProvider = suborder.ShippingProvider,
+                    OrderItems = orderItems
+                });
+            }
+
+            // Format address
+            var address = $"{order.Address?.Country}, {order.Address?.State}, {order.Address?.City}";
+
+            return new OrderDto()
+            {
+                OrderId = order.OrderId,
+                CustomerId = order.CustomerId,
+                CustomerName = order.Customer?.User.FirstName + " " + order.Customer?.User.LastName, 
+                AddressId = order.AddressId,
+                Address = address,
+                CouponId = order.CouponId,
+                TotalAmount = order.TotalAmount,
+                DiscountAmount = order.DiscountAmount,
+                ShippingFee = order.ShippingFee,
+                TaxAmount = order.TaxAmount,
+                FinalAmount = order.FinalAmount,
+                PaymentMethod = order.PaymentMethod,
+                PaymentStatus = order.PaymentStatus,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
+                AffiliateId = order.AffiliateId,
+                AffiliateCode = order.AffiliateCode,
+                OrderStatus = order.OrderStatus,
+                SubOrders = suborders
+            };
+        }
         public async Task<OrderDto> GetOrderByIdAsync(int id)
         {
             try
             {
                 var order = await _context.Orders
-                    .Include(o => o.SubOrders)
-                        .ThenInclude(so => so.OrderItems)
-                    .FirstOrDefaultAsync(o => o.OrderId == id);
+                        .Include(o => o.SubOrders)
+                            .ThenInclude(so => so.OrderItems)
+                                .ThenInclude(oi => oi.Product) 
+                        .Include(o => o.SubOrders)
+                            .ThenInclude(so => so.OrderItems)
+                                .ThenInclude(oi => oi.Variant) 
+                        .Include(o => o.SubOrders)
+                            .ThenInclude(so => so.Seller)
+                                .ThenInclude(s => s.User)
+                        .Include(o => o.Customer)
+                            .ThenInclude(c => c.User)
+                        .Include(o => o.Address)
+                        .FirstOrDefaultAsync(o => o.OrderId == id);
 
                 if (order == null)
                     return null;
 
-                return _mapper.Map<OrderDto>(order);
+                return MapOrderToDto(order);
             }
             catch (Exception ex)
             {

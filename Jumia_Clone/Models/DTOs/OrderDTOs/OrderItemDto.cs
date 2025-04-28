@@ -5,6 +5,8 @@
         public int OrderItemId { get; set; }
         public int SuborderId { get; set; }
         public int ProductId { get; set; }
+        public string ProductName { get; set; }
+        public string VariantName { get; set; }
         public int Quantity { get; set; }
         public decimal PriceAtPurchase { get; set; }
         public decimal TotalPrice { get; set; }
