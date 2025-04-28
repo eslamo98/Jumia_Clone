@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Jumia_Clone.CustomException;
 using Jumia_Clone.Data;
+using Jumia_Clone.Models.Constants;
 using Jumia_Clone.Models.DTOs.CartDTOs;
 using Jumia_Clone.Models.DTOs.CartItemDtos;
 using Jumia_Clone.Models.DTOs.GeneralDTOs;
@@ -84,6 +85,7 @@ namespace Jumia_Clone.Repositories
                             if (item.VariantId.HasValue && item.Variant != null)
                             {
                                 cartItemDto.VariantName = item.Variant.VariantName;
+                                cartItemDto.ProductImage = item.Variant.VariantImageUrl;
                             }
                         }
                     }
@@ -190,8 +192,9 @@ namespace Jumia_Clone.Repositories
 
                 // Check if product exists
                 var product = await _context.Products
-                    .FirstOrDefaultAsync(p => p.ProductId == cartItemDto.ProductId && p.IsAvailable == true);
+                    .FirstOrDefaultAsync(p => p.ProductId == cartItemDto.ProductId && p.IsAvailable == true && p.ApprovalStatus != ProductApprovalStatus.Deleted);
 
+                //var productVariant = await _context.ProductViews.FirstOrDefault()
                 if (product == null)
                 {
                     throw new KeyNotFoundException($"Product with ID {cartItemDto.ProductId} not found or is not available");
