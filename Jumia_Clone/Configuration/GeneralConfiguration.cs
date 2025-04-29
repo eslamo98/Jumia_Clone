@@ -249,6 +249,15 @@ namespace Jumia_Clone.Configuration
                 cfg.AddProfile<CouponMappingProfile>();
                 cfg.AddProfile<WishlistMappingProfile>();
             });
+            services.AddSingleton<IOpenAIClient, OpenAIClient>(provider =>
+            {
+                var configuration = provider.GetRequiredService<IConfiguration>();
+                return new OpenAIClient(configuration);
+            });
+
+            // Add AI Query Service with proper scope
+            services.AddScoped<IAIQueryService, AIQueryService>();
+
         }
 
         private static void RegisterRepositories(IServiceCollection services)

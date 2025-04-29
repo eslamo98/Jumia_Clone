@@ -1,4 +1,5 @@
 ﻿using Jumia_Clone.Models.DTOs.PaymentDTOs;
+using Jumia_Clone.Repositories.Interfaces;
 using Jumia_Clone.Services.Interfaces;
 using System.Text.Json;
 
@@ -10,13 +11,18 @@ namespace Jumia_Clone.Services.Implementation
         private readonly IConfiguration _configuration;
         private readonly string _apiKey;
         private readonly string _integrationId;
-
-        public PaymobPaymentService(HttpClient httpClient, IConfiguration configuration)
+        private readonly IOrderRepository _orderRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IAddressRepository _addressRepository;
+        public PaymobPaymentService(HttpClient httpClient, IConfiguration configuration, IOrderRepository orderRepository, IUserRepository userRepository, IAddressRepository addressRepository)
         {
             _httpClient = httpClient;
             _configuration = configuration;
             _apiKey = _configuration["Paymob:ApiKey"];
             _integrationId = _configuration["Paymob:IntegrationId"];
+            _orderRepository = orderRepository;
+            _userRepository = userRepository;
+            _addressRepository = addressRepository;
         }
 
         public async Task<PaymentResponseDto> InitiatePaymentAsync(PaymentRequestDto request)
@@ -92,6 +98,10 @@ namespace Jumia_Clone.Services.Implementation
 
         private async Task<string> GeneratePaymentKeyAsync(string authToken, string orderId, PaymentRequestDto request)
         {
+            var order = await _orderRepository.GetOrderByIdAsync((request.OrderId));
+            var user = await _userRepository.GetCustomerByIdAsync(order.CustomerId);
+            var address = await _addressRepository.GetAddressByIdAsync(order.AddressId);
+            
             var paymentKeyRequest = new
             {
                 auth_token = authToken,
@@ -100,15 +110,15 @@ namespace Jumia_Clone.Services.Implementation
                 order_id = orderId,
                 billing_data = new
                 {
-                    first_name = "NA",
-                    last_name = "NA",
-                    email = "NA@email.com",
-                    phone_number = "NA",
-                    street = "NA",
-                    city = "NA",
-                    country = "NA",
-                    state = "NA",
-                    postal_code = "NA",
+                    first_name = user?.FirstName ?? "NA",
+                    last_name = user?.LastName??"NA",
+                    email = user?.Email?? "NA@email.com",
+                    phone_number =user?.PhoneNumber?? "NA",
+                    street = address?.StreetAddress??"NA",
+                    city = address?.City?? "NA",
+                    country = address?.Country?? "NA",
+                    state = address?.State?? "NA",
+                    postal_code =address?.PostalCode?? "NA",
                     building = "NA",
                     floor = "NA",
                     apartment = "NA"
@@ -116,7 +126,6 @@ namespace Jumia_Clone.Services.Implementation
                 currency = request.Currency,
                 integration_id = _integrationId
             };
-
             var response = await _httpClient.PostAsJsonAsync("https://accept.paymob.com/api/acceptance/payment_keys", paymentKeyRequest);
 
             if (!response.IsSuccessStatusCode)
