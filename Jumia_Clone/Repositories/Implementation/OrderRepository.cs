@@ -15,13 +15,16 @@ namespace Jumia_Clone.Repositories.Implementation
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<OrderRepository> _logger;
+        private readonly ICartRepository _cartRepository;
 
         public OrderRepository(
             ApplicationDbContext context,
             IMapper mapper,
-            ILogger<OrderRepository> logger)
+            ILogger<OrderRepository> logger,
+            ICartRepository cartRepository)
         {
             _context = context;
+            _cartRepository = cartRepository;
             _mapper = mapper;
             _logger = logger;
         }
@@ -412,8 +415,9 @@ namespace Jumia_Clone.Repositories.Implementation
 
                 // Update inventory
                 await UpdateInventoryAsync(orderDto);
-
+                var user = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerId == order.CustomerId);
                 await transaction.CommitAsync();
+                await _cartRepository.ClearCartAsync(user.UserId);
 
                 // Retrieve the newly created order with all details
                 var createdOrder = await _context.Orders
