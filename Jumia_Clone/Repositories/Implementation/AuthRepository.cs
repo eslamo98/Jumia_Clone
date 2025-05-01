@@ -305,6 +305,76 @@ namespace Jumia_Clone.Repositories.Implementation
             }
         }
 
+        public async Task<UserResponseDto> HandleExternalAuthAsync(ExternalAuthDto externalAuth)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(externalAuth.Email);
+
+            if (user == null && !externalAuth.IsNewUser)
+            {
+                throw new Exception("User not found. Please register first.");
+            }
+
+            if (user == null && externalAuth.IsNewUser)
+            {
+                // Generate a random password for external auth users
+                var randomPassword = Guid.NewGuid().ToString();
+                var passwordHash = PasswordHelpers.HashPassword(randomPassword);
+
+                // Create new user 
+                user = new User
+                {
+                    Email = externalAuth.Email,
+                    FirstName = externalAuth.Name.Split(' ')[0],
+                    LastName = externalAuth.Name.Split(' ').Length > 1 ? externalAuth.Name.Split(' ')[1] : "",
+                    UserType = UserRoles.Customer,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    ProfileImageUrl = externalAuth.PhotoUrl,
+                    PasswordHash = passwordHash  // Add the password hash
+                };
+
+                await _userRepository.CreateUserAsync(user);
+
+                var customer = new Customer
+                {
+                    UserId = user.UserId,
+                    LastLogin = DateTime.UtcNow
+                };
+
+                await _context.Customers.AddAsync(customer);
+                await _context.SaveChangesAsync();
+            }
+            else if (user != null && externalAuth.IsNewUser)
+            {
+                throw new Exception("User already exists. Please login instead.");
+            }
+
+            // Update last login for existing users 
+            if (!externalAuth.IsNewUser && user.Customer != null)
+            {
+                user.Customer.LastLogin = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            // Generate tokens 
+            var tokenResponse = GenerateTokens(user);
+
+            // Save refresh token 
+            await _userRepository.SaveRefreshTokenAsync(user.UserId, tokenResponse.RefreshToken);
+
+            return new UserResponseDto
+            {
+                UserId = user.UserId,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                UserType = user.UserType,
+                Token = tokenResponse.Token,
+                RefreshToken = tokenResponse.RefreshToken,
+                EntityId = user.UserType.ToLower() == UserRoles.Customer.ToLower() ? user.Customer.CustomerId : user.UserType.ToLower() == UserRoles.Admin.ToLower() ? user.Admin.AdminId : user.Seller.SellerId
+            };
+        }
         #region Helper Methods
         private TokenResponseDto GenerateTokens(User user)
         {

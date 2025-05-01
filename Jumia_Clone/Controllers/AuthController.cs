@@ -59,6 +59,30 @@ namespace Jumia_Clone.Controllers
                 return BadRequest(new ApiResponse<object>(null) { Success = false, Message = ex.Message });
             }
         }
+        [HttpPost("external-auth")]
+        public async Task<IActionResult> ExternalAuth([FromBody] ExternalAuthDto externalAuth)
+        {
+            try
+            {
+                var result = await _authRepository.HandleExternalAuthAsync(externalAuth);
+                string message = externalAuth.IsNewUser ? "Registration successful" : "Login successful";
+
+                return Ok(new ApiResponse<UserResponseDto>
+                {
+                    Data = result,
+                    Message = message,
+                    Success = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiErrorResponse
+                {
+                    Message = "Authentication failed",
+                    ErrorMessages = new[] { ex.Message }
+                });
+            }
+        }
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)

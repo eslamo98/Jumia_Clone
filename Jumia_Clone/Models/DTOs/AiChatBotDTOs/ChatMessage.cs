@@ -9,8 +9,9 @@ namespace Jumia_Clone.Models.DTOs.AiChatBotDTOs
         {
             Role = role;
             Content = content;
-        }
 
+        }
+        public string ImageBase64 { get; set; }
         public ChatRole Role { get; set; }
         public string Content { get; set; }
     }
