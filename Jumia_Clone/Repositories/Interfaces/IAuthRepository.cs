@@ -9,5 +9,6 @@ namespace Jumia_Clone.Repositories.Interfaces
         Task<UserResponseDto> LoginAsync(LoginDto loginDto);
         Task<TokenResponseDto> RefreshTokenAsync(string refreshToken);
         Task<bool> ChangePasswordAsync(int userId, AuthChangePasswordDto changePasswordDto);
+        Task<UserResponseDto> HandleExternalAuthAsync(ExternalAuthDto externalAuth);
     }
 }
