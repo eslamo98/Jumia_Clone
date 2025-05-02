@@ -194,18 +194,11 @@ namespace Jumia_Clone.Repositories
                 var product = await _context.Products
                     .FirstOrDefaultAsync(p => p.ProductId == cartItemDto.ProductId && p.IsAvailable == true && p.ApprovalStatus != ProductApprovalStatus.Deleted);
 
-                //var productVariant = await _context.ProductViews.FirstOrDefault()
                 if (product == null)
                 {
                     throw new KeyNotFoundException($"Product with ID {cartItemDto.ProductId} not found or is not available");
                 }
-                if(product.StockQuantity < cartItemDto.Quantity)
-                {
-                    throw new InsufficientStockException(
-                        cartItemDto.Quantity,
-                        product.StockQuantity
-                    );
-                }
+
                 // Check variant if specified
                 ProductVariant variant = null;
                 if (cartItemDto.VariantId.HasValue)
@@ -216,6 +209,26 @@ namespace Jumia_Clone.Repositories
                     if (variant == null)
                     {
                         throw new KeyNotFoundException($"Variant with ID {cartItemDto.VariantId} not found or is not available for this product");
+                    }
+
+                    // Check variant stock quantity
+                    if (variant.StockQuantity < cartItemDto.Quantity)
+                    {
+                        throw new InsufficientStockException(
+                            cartItemDto.Quantity,
+                            variant.StockQuantity
+                        );
+                    }
+                }
+                else
+                {
+                    // Check product stock quantity only if no variant is specified
+                    if (product.StockQuantity < cartItemDto.Quantity)
+                    {
+                        throw new InsufficientStockException(
+                            cartItemDto.Quantity,
+                            product.StockQuantity
+                        );
                     }
                 }
 
@@ -228,8 +241,31 @@ namespace Jumia_Clone.Repositories
 
                 if (existingItem != null)
                 {
+                    // Check total quantity after update for stock availability
+                    int totalQuantity = existingItem.Quantity + cartItemDto.Quantity;
+                    if (cartItemDto.VariantId.HasValue)
+                    {
+                        if (variant.StockQuantity < totalQuantity)
+                        {
+                            throw new InsufficientStockException(
+                                totalQuantity,
+                                variant.StockQuantity
+                            );
+                        }
+                    }
+                    else
+                    {
+                        if (product.StockQuantity < totalQuantity)
+                        {
+                            throw new InsufficientStockException(
+                                totalQuantity,
+                                product.StockQuantity
+                            );
+                        }
+                    }
+
                     // Update quantity
-                    existingItem.Quantity += cartItemDto.Quantity;
+                    existingItem.Quantity = totalQuantity;
                     _context.Entry(existingItem).State = EntityState.Modified;
                     cartItem = existingItem;
                 }
@@ -278,6 +314,7 @@ namespace Jumia_Clone.Repositories
                 if (cartItem.VariantId.HasValue && cartItem.Variant != null)
                 {
                     cartItemResponse.VariantName = cartItem.Variant.VariantName;
+                    cartItemResponse.ProductImage = cartItem.Variant.VariantImageUrl;
                 }
 
                 return cartItemResponse;
@@ -289,7 +326,6 @@ namespace Jumia_Clone.Repositories
                 throw;
             }
         }
-
         public async Task<CartItemDto> UpdateCartItemQuantityAsync(int userId, UpdateCartItemDto updateCartItemDto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -298,8 +334,9 @@ namespace Jumia_Clone.Repositories
                 var customerId = getCutomerId(userId);
                 if (customerId == 0)
                 {
-                    
-                    throw new KeyNotFoundException("Customer was not found"); }
+                    throw new KeyNotFoundException("Customer was not found");
+                }
+
                 // Get the cart item
                 var cartItem = await _context.CartItems
                     .Include(ci => ci.Cart)
@@ -314,14 +351,29 @@ namespace Jumia_Clone.Repositories
                 if (cartItem.Cart.CustomerId != customerId)
                     throw new UnauthorizedAccessException("Cart item does not belong to this customer");
 
-                // Update quantity
-                if (updateCartItemDto.Quantity > cartItem.Product.StockQuantity)
+                // Check stock quantity based on whether it's a variant or base product
+                if (cartItem.VariantId.HasValue && cartItem.Variant != null)
                 {
-                    throw new InsufficientStockException(
-                        updateCartItemDto.Quantity,
-                        cartItem.Product.StockQuantity
-                    );
+                    if (updateCartItemDto.Quantity > cartItem.Variant.StockQuantity)
+                    {
+                        throw new InsufficientStockException(
+                            updateCartItemDto.Quantity,
+                            cartItem.Variant.StockQuantity
+                        );
+                    }
                 }
+                else
+                {
+                    if (updateCartItemDto.Quantity > cartItem.Product.StockQuantity)
+                    {
+                        throw new InsufficientStockException(
+                            updateCartItemDto.Quantity,
+                            cartItem.Product.StockQuantity
+                        );
+                    }
+                }
+
+                // Update quantity
                 cartItem.Quantity = updateCartItemDto.Quantity;
 
                 // Update cart timestamp
@@ -341,6 +393,7 @@ namespace Jumia_Clone.Repositories
                 if (cartItem.VariantId.HasValue && cartItem.Variant != null)
                 {
                     cartItemResponse.VariantName = cartItem.Variant.VariantName;
+                    cartItemResponse.ProductImage = cartItem.Variant.VariantImageUrl;
                 }
 
                 return cartItemResponse;
@@ -352,7 +405,6 @@ namespace Jumia_Clone.Repositories
                 throw;
             }
         }
-
         public async Task<bool> RemoveCartItemAsync(int userId, int cartItemId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
